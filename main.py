@@ -658,9 +658,10 @@ class App(tk.Tk):
         if not csv_path:
             return
         try:
-            report_path = rpt.generate_report(csv_path)
-            webbrowser.open(f"file://{os.path.abspath(report_path)}")
-            logging.getLogger("App").info(f"Rapor oluşturuldu: {report_path}")
+            html_path, xlsx_path = rpt.generate_report(csv_path)
+            webbrowser.open(f"file://{os.path.abspath(html_path)}")
+            logging.getLogger("App").info(f"HTML:  {html_path}")
+            logging.getLogger("App").info(f"Excel: {xlsx_path}")
         except Exception as e:
             messagebox.showerror("Hata", str(e))
 
