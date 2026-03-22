@@ -57,11 +57,39 @@ class App(tk.Tk):
         PAD = dict(padx=8, pady=3)
 
         # Ana çerçeve: sol (ayarlar) + sağ (durum + log)
-        left  = ttk.Frame(self)
-        right = ttk.Frame(self)
-        left.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
-        right.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
+        self.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
+
+        # Sol panel — scrollable
+        left_outer = ttk.Frame(self)
+        left_outer.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
+        left_outer.rowconfigure(0, weight=1)
+        left_outer.columnconfigure(0, weight=1)
+
+        left_canvas = tk.Canvas(left_outer, highlightthickness=0)
+        left_canvas.grid(row=0, column=0, sticky="nsew")
+
+        left_scroll = ttk.Scrollbar(left_outer, orient="vertical", command=left_canvas.yview)
+        left_scroll.grid(row=0, column=1, sticky="ns")
+        left_canvas.configure(yscrollcommand=left_scroll.set)
+
+        left = ttk.Frame(left_canvas)
+        left_window = left_canvas.create_window((0, 0), window=left, anchor="nw")
+
+        def _on_left_configure(event):
+            left_canvas.configure(scrollregion=left_canvas.bbox("all"))
+        def _on_canvas_resize(event):
+            left_canvas.itemconfig(left_window, width=event.width)
+
+        left.bind("<Configure>", _on_left_configure)
+        left_canvas.bind("<Configure>", _on_canvas_resize)
+
+        def _on_mousewheel(event):
+            left_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        left_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        right = ttk.Frame(self)
+        right.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
 
         # ════════════════════════════════
         # SOL PANEL
