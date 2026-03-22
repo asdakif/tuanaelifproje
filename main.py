@@ -170,7 +170,6 @@ class App(tk.Tk):
 
         ttk.Label(lev_frame, text="Aktif lever:").grid(row=0, column=0, sticky="w", **PAD)
         self.var_lever_side = tk.StringVar(value="Sol (0x01)")
-        self.var_lever_side.trace_add("write", self._sync_water_to_lever)
         ttk.Combobox(lev_frame, textvariable=self.var_lever_side,
                      values=["Sol (0x01)", "Sağ (0x02)"],
                      width=14, state="readonly").grid(row=0, column=1, **PAD)
@@ -193,14 +192,6 @@ class App(tk.Tk):
         ttk.Combobox(out_frame, textvariable=self.var_ds_minus_outcome,
                      values=["reward", "punishment"], width=12, state="readonly").grid(row=1, column=1, **PAD)
 
-        ttk.Label(out_frame, text="Su tarafı:").grid(row=2, column=0, sticky="w", **PAD)
-        self.var_water_side = tk.StringVar(value="Sol (0x01)" if config.WATER_SIDE == 0x01 else "Sağ (0x02)")
-        self.cmb_water_side = ttk.Combobox(out_frame, textvariable=self.var_water_side,
-                     values=["Sol (0x01)", "Sağ (0x02)"],
-                     width=12, state="readonly")
-        self.cmb_water_side.grid(row=2, column=1, **PAD)
-        ttk.Label(out_frame, text="(lever ile otomatik eşlenir)",
-                  foreground="gray").grid(row=3, column=0, columnspan=2, sticky="w", padx=8)
 
         # ── Avisoft Playlist ──────────────
         av_frame = ttk.LabelFrame(left, text="Avisoft Playlist")
@@ -434,7 +425,6 @@ class App(tk.Tk):
             config.BNC_DS_PLUS_VOLTAGE   = float(self.var_ttl_voltage.get())
             config.BNC_DS_MINUS_VOLTAGE  = float(self.var_ttl_voltage.get())
             config.LEVER_SIDE            = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
-            config.WATER_SIDE            = 0x01 if "Sol" in self.var_water_side.get() else 0x02
             config.LEVER_EXTEND_ON_DS    = self.var_lever_on_ds.get()
             config.DS_PLUS_OUTCOME       = self.var_ds_plus_outcome.get()
             config.DS_MINUS_OUTCOME      = self.var_ds_minus_outcome.get()
@@ -664,11 +654,6 @@ class App(tk.Tk):
             logging.getLogger("App").info(f"Excel: {xlsx_path}")
         except Exception as e:
             messagebox.showerror("Hata", str(e))
-
-    # ── Lever-Su senkronu ─────────────────────────────────────────────────────
-
-    def _sync_water_to_lever(self, *_):
-        self.var_water_side.set(self.var_lever_side.get())
 
     # ── Kapat ─────────────────────────────────────────────────────────────────
 
