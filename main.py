@@ -159,6 +159,7 @@ class App(tk.Tk):
 
         ttk.Label(lev_frame, text="Aktif lever:").grid(row=0, column=0, sticky="w", **PAD)
         self.var_lever_side = tk.StringVar(value="Sol (0x01)")
+        self.var_lever_side.trace_add("write", self._sync_water_to_lever)
         ttk.Combobox(lev_frame, textvariable=self.var_lever_side,
                      values=["Sol (0x01)", "Sağ (0x02)"],
                      width=14, state="readonly").grid(row=0, column=1, **PAD)
@@ -183,9 +184,12 @@ class App(tk.Tk):
 
         ttk.Label(out_frame, text="Su tarafı:").grid(row=2, column=0, sticky="w", **PAD)
         self.var_water_side = tk.StringVar(value="Sol (0x01)" if config.WATER_SIDE == 0x01 else "Sağ (0x02)")
-        ttk.Combobox(out_frame, textvariable=self.var_water_side,
+        self.cmb_water_side = ttk.Combobox(out_frame, textvariable=self.var_water_side,
                      values=["Sol (0x01)", "Sağ (0x02)"],
-                     width=12, state="readonly").grid(row=2, column=1, **PAD)
+                     width=12, state="readonly")
+        self.cmb_water_side.grid(row=2, column=1, **PAD)
+        ttk.Label(out_frame, text="(lever ile otomatik eşlenir)",
+                  foreground="gray").grid(row=3, column=0, columnspan=2, sticky="w", padx=8)
 
         # ── Avisoft Playlist ──────────────
         av_frame = ttk.LabelFrame(left, text="Avisoft Playlist")
@@ -498,6 +502,11 @@ class App(tk.Tk):
             self.lbl_iti_trial._var.set(str(trial_presses))
             self.lbl_iti_total._var.set(str(total_presses))
         self.after(0, _update)
+
+    # ── Lever-Su senkronu ─────────────────────────────────────────────────────
+
+    def _sync_water_to_lever(self, *_):
+        self.var_water_side.set(self.var_lever_side.get())
 
     # ── Kapat ─────────────────────────────────────────────────────────────────
 
