@@ -153,7 +153,9 @@ class App(tk.Tk):
             ("DS+ TTL (ms):",        "var_ttl_plus_dur",  str(config.BNC_DS_PLUS_DURATION)),
             ("DS− TTL (ms):",        "var_ttl_minus_dur", str(config.BNC_DS_MINUS_DURATION)),
             ("TTL voltaj (V):",      "var_ttl_voltage",   str(config.BNC_DS_PLUS_VOLTAGE)),
-            ("Max üst üste:",        "var_max_consec",    "3"),
+            ("Max üst üste:",        "var_max_consec",        "3"),
+            ("Kriter Hit Rate:",     "var_criterion_hit",     str(config.CRITERION_HIT_RATE)),
+            ("Kriter d':",           "var_criterion_dprime",  str(config.CRITERION_DPRIME)),
         ]
         for i, (label, var_name, default) in enumerate(params):
             ttk.Label(param_frame, text=label).grid(row=i, column=0, sticky="w", **PAD)
@@ -438,6 +440,8 @@ class App(tk.Tk):
             config.AVISOFT_PLAYLIST      = self.var_playlist.get().strip()
             config.AVISOFT_DOUT_PORT     = self.var_dout_port.get().strip()
             self._max_consec             = int(self.var_max_consec.get())
+            config.CRITERION_HIT_RATE    = float(self.var_criterion_hit.get())
+            config.CRITERION_DPRIME      = float(self.var_criterion_dprime.get())
             return True
         except ValueError as e:
             messagebox.showerror("Parametre Hatası", str(e))

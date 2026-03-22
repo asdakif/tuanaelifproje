@@ -54,5 +54,11 @@ BNC_DS_PLUS_DURATION = 100   # ms  → Avisoft "DS+ sesi" çalar
 BNC_DS_MINUS_VOLTAGE  = 3.3  # Volt
 BNC_DS_MINUS_DURATION = 200  # ms  → Avisoft "DS− sesi" çalar
 
+# ─── Kriter Eşikleri ──────────────────────────────────────────────────────────
+# Her trial sonunda hit_rate >= CRITERION_HIT_RATE VE d' >= CRITERION_DPRIME
+# sağlanıyorsa CSV'de criterion_reached = 1 olarak işaretlenir.
+CRITERION_HIT_RATE = 0.80   # Minimum hit rate (0.0–1.0)
+CRITERION_DPRIME   = 1.5    # Minimum d' değeri
+
 # ─── Log Klasörü ───────────────────────────────────────────────────────────────
 LOG_DIR = "logs"

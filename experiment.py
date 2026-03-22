@@ -503,7 +503,7 @@ class Experiment:
             "timestamp",
             "hit_rate", "cr_rate", "d_prime",
             "rewarded", "punished", "omission", "correct_rejection",
-            "sound_confirmed",
+            "sound_confirmed", "criterion_reached",
         ])
         self.log.info(f"Log: {self._log_file}")
 
@@ -527,5 +527,6 @@ class Experiment:
             self.stats["omission"],
             self.stats["correct_rejection"],
             int(self._sound_confirmed),
+            int(hr >= config.CRITERION_HIT_RATE and dp >= config.CRITERION_DPRIME),
         ])
         self._csv_file.flush()
