@@ -80,8 +80,9 @@ class Experiment:
         self._counting_licks = False
 
         # Avisoft DOUT onayı
-        self._sound_confirmed = False
-        self._dout_event      = threading.Event()
+        self._sound_confirmed  = False
+        self._sound_sync_misses = 0   # oturum geneli onaysız trial sayısı
+        self._dout_event       = threading.Event()
 
         # İstatistikler
         self.stats = {
@@ -241,8 +242,9 @@ class Experiment:
         self.trial_num         = 0
         self.total_licks       = 0
         self.total_iti_presses = 0
-        self._hit_count        = 0
-        self._fa_count         = 0
+        self._hit_count         = 0
+        self._fa_count          = 0
+        self._sound_sync_misses = 0
         self.stats = {
             "rewarded": 0, "punished": 0,
             "omission": 0, "correct_rejection": 0,
@@ -344,13 +346,20 @@ class Experiment:
         self.box.house_light_off()
 
         # Avisoft DOUT onayı (opsiyonel)
+        self._sound_confirmed = True  # DOUT yoksa onaylı say
         if config.AVISOFT_DOUT_PORT:
             self._dout_event.clear()
-            confirmed = self._dout_event.wait(timeout=2.0)
-            if confirmed:
+            self._sound_confirmed = self._dout_event.wait(timeout=2.0)
+            if self._sound_confirmed:
                 self.log.info(f"Trial {self.trial_num} — Avisoft ses onaylandı ✓")
             else:
-                self.log.warning(f"Trial {self.trial_num} — Avisoft onayı gelmedi!")
+                self._sound_sync_misses += 1
+                self.log.critical(
+                    f"⚠ SYNC MISS — Trial {self.trial_num} [{ds_type.value}]: "
+                    f"Avisoft DOUT onayı gelmedi! "
+                    f"(Toplam {self._sound_sync_misses} miss bu oturumda) "
+                    f"Playlist sırası kaymış olabilir — verileri kontrol et."
+                )
 
         if config.LEVER_EXTEND_ON_DS:
             self._lever_extend_time = time.time()
@@ -494,6 +503,7 @@ class Experiment:
             "timestamp",
             "hit_rate", "cr_rate", "d_prime",
             "rewarded", "punished", "omission", "correct_rejection",
+            "sound_confirmed",
         ])
         self.log.info(f"Log: {self._log_file}")
 
@@ -516,5 +526,6 @@ class Experiment:
             self.stats["punished"],
             self.stats["omission"],
             self.stats["correct_rejection"],
+            int(self._sound_confirmed),
         ])
         self._csv_file.flush()
