@@ -48,7 +48,9 @@ class App(tk.Tk):
         self.box = None
         self.ttl = None
         self.exp = None
-        self._max_consec = 3
+        self._max_consec   = 3
+        self._animal_queue: list[str] = []
+        self._animal_index: int       = 0
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ── UI inşa ───────────────────────────────────────────────────────────────
@@ -99,14 +101,20 @@ class App(tk.Tk):
         sess_frame = ttk.LabelFrame(left, text="Oturum Bilgisi")
         sess_frame.pack(fill="x", pady=4)
 
-        ttk.Label(sess_frame, text="Hayvan ID:").grid(row=0, column=0, sticky="w", **PAD)
-        self.var_animal_id = tk.StringVar(value="")
-        ttk.Entry(sess_frame, textvariable=self.var_animal_id, width=16).grid(row=0, column=1, **PAD)
+        ttk.Label(sess_frame, text="Hayvan Listesi\n(her satıra bir ID):",
+                  justify="left").grid(row=0, column=0, sticky="nw", **PAD)
+        self.txt_animal_list = tk.Text(sess_frame, width=16, height=5, font=("Courier", 10))
+        self.txt_animal_list.grid(row=0, column=1, **PAD)
+
+        # Sıra göstergesi
+        self.lbl_animal_queue = ttk.Label(sess_frame, text="", foreground="#1565C0",
+                                          font=("Helvetica", 9, "italic"))
+        self.lbl_animal_queue.grid(row=1, column=0, columnspan=2, sticky="w", padx=8)
 
         ttk.Label(sess_frame, text="Avisoft DOUT\nport (opsiyonel):",
-                  justify="left").grid(row=1, column=0, sticky="w", **PAD)
+                  justify="left").grid(row=2, column=0, sticky="w", **PAD)
         self.var_dout_port = tk.StringVar(value=config.AVISOFT_DOUT_PORT)
-        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=1, column=1, **PAD)
+        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=2, column=1, **PAD)
 
         # ── Bağlantı ─────────────────────
         conn_frame = ttk.LabelFrame(left, text="Bağlantı Ayarları")
@@ -438,12 +446,27 @@ class App(tk.Tk):
     def _start(self):
         if not self.exp or not self._apply_params():
             return
-        animal_id = self.var_animal_id.get().strip()
-        if not animal_id:
-            messagebox.showwarning("Hayvan ID", "Lütfen hayvan ID girin!")
+        # Listeyi parse et
+        raw = self.txt_animal_list.get("1.0", tk.END)
+        ids = [line.strip() for line in raw.splitlines() if line.strip()]
+        if not ids:
+            messagebox.showwarning("Hayvan Listesi", "Lütfen en az bir hayvan ID girin!")
             return
+        self._animal_queue = ids
+        self._animal_index = 0
+        self._start_next_animal()
+
+    def _start_next_animal(self):
+        animal_id = self._animal_queue[self._animal_index]
+        total     = len(self._animal_queue)
+        self.lbl_animal_queue.config(
+            text=f"Sıra: {self._animal_index + 1}/{total} — Şu an: {animal_id}"
+        )
         self.btn_start.configure(state="disabled")
         self.btn_stop.configure(state="normal")
+        logging.getLogger("App").info(
+            f"Hayvan {self._animal_index + 1}/{total}: {animal_id} başlıyor"
+        )
         self.exp.start(self._max_consec, animal_id=animal_id)
 
     def _stop(self):
@@ -493,19 +516,51 @@ class App(tk.Tk):
                 self.canvas_ds.itemconfig(self.ds_circle, fill="#ff1744")
 
             if state == State.SESSION_END:
-                self.btn_start.configure(state="normal")
                 self.btn_stop.configure(state="disabled")
                 hr, cr, dp = self.exp.discrimination_metrics()
-                messagebox.showinfo(
-                    "Deney Tamamlandı",
-                    f"Hayvan: {self.exp.animal_id}\n"
-                    f"Toplam: {config.NUM_TRIALS} trial\n\n"
-                    f"Hit Rate (DS+):     {hr:.1%}\n"
-                    f"Correct Rej (DS−):  {cr:.1%}\n"
-                    f"d' (diskriminasyon): {dp:.2f}\n\n"
-                    f"Log: {self.exp._log_file}"
-                )
+                self._show_session_end_dialog(hr, cr, dp)
         self.after(0, _update)
+
+    def _show_session_end_dialog(self, hr, cr, dp):
+        animal_id  = self.exp.animal_id
+        log_file   = self.exp._log_file
+        idx        = self._animal_index
+        total      = len(self._animal_queue)
+        has_next   = idx + 1 < total
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Deney Tamamlandı")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        msg = (
+            f"Hayvan: {animal_id}  ({idx + 1}/{total})\n"
+            f"Toplam: {config.NUM_TRIALS} trial\n\n"
+            f"Hit Rate (DS+):      {hr:.1%}\n"
+            f"Correct Rej (DS−):   {cr:.1%}\n"
+            f"d' (diskriminasyon): {dp:.2f}\n\n"
+            f"Log: {os.path.basename(log_file) if log_file else '—'}"
+        )
+        ttk.Label(dlg, text=msg, justify="left", padding=16).pack()
+
+        btn_frame = ttk.Frame(dlg); btn_frame.pack(pady=8)
+
+        if has_next:
+            next_id = self._animal_queue[idx + 1]
+            def _next():
+                dlg.destroy()
+                self._animal_index += 1
+                self._start_next_animal()
+            ttk.Button(btn_frame, text=f"Sonraki Hayvan: {next_id}  →",
+                       command=_next).pack(side="left", padx=8)
+
+        def _finish():
+            dlg.destroy()
+            self.btn_start.configure(state="normal")
+            self.lbl_animal_queue.config(text="Tüm hayvanlar tamamlandı." if not has_next else "")
+            if not has_next:
+                logging.getLogger("App").info("Tüm hayvanlar tamamlandı.")
+        ttk.Button(btn_frame, text="Bitir", command=_finish).pack(side="left", padx=8)
 
     def _on_trial_end(self, trial_num, ds, result, rt_ds, rt_lever):
         def _update():
