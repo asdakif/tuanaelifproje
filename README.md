@@ -359,11 +359,3 @@ Paket formatı: `0xAA 0xBB [channel] [type] [data...] 0xCC 0xDD`
 
 Lickometre olayı `0xA3 0x02` paketi olarak gelir. Yazılım, ödül sonrası `LICK_WINDOW_S` saniye boyunca lick sayar.
 
----
-
-## Katkıda Bulunanlar
-
-- **Tuana Elif Demirhan** — Deney tasarımı ve protokol
-- **Mehmet Akif Yıldırım** — Yazılım geliştirme
-
-Boğaziçi Üniversitesi — Davranışsal Nörobilim Laboratuvarı
