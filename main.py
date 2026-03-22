@@ -153,6 +153,12 @@ class App(tk.Tk):
         ttk.Combobox(out_frame, textvariable=self.var_ds_minus_outcome,
                      values=["reward", "punishment"], width=12, state="readonly").grid(row=1, column=1, **PAD)
 
+        ttk.Label(out_frame, text="Su tarafı:").grid(row=2, column=0, sticky="w", **PAD)
+        self.var_water_side = tk.StringVar(value="Sol (0x01)" if config.WATER_SIDE == 0x01 else "Sağ (0x02)")
+        ttk.Combobox(out_frame, textvariable=self.var_water_side,
+                     values=["Sol (0x01)", "Sağ (0x02)"],
+                     width=12, state="readonly").grid(row=2, column=1, **PAD)
+
         # ── Avisoft Playlist ──────────────
         av_frame = ttk.LabelFrame(left, text="Avisoft Playlist")
         av_frame.pack(fill="x", pady=4)
@@ -345,6 +351,7 @@ class App(tk.Tk):
             config.BNC_DS_PLUS_VOLTAGE   = float(self.var_ttl_voltage.get())
             config.BNC_DS_MINUS_VOLTAGE  = float(self.var_ttl_voltage.get())
             config.LEVER_SIDE            = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
+            config.WATER_SIDE            = 0x01 if "Sol" in self.var_water_side.get() else 0x02
             config.LEVER_EXTEND_ON_DS    = self.var_lever_on_ds.get()
             config.DS_PLUS_OUTCOME       = self.var_ds_plus_outcome.get()
             config.DS_MINUS_OUTCOME      = self.var_ds_minus_outcome.get()
