@@ -5,9 +5,10 @@ Boğaziçi Üniversitesi Davranışsal Nörobilim Laboratuvarı
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, filedialog
 import logging
 import os
+import webbrowser
 from datetime import datetime
 
 import config
@@ -229,6 +230,8 @@ class App(tk.Tk):
 
         self.btn_stop = ttk.Button(ctrl_frame, text="⏹  Durdur", command=self._stop, state="disabled")
         self.btn_stop.pack(fill="x", padx=8, pady=2)
+
+        ttk.Button(ctrl_frame, text="Rapor Oluştur", command=self._generate_report).pack(fill="x", padx=8, pady=2)
 
         # ── Simülasyon ───────────────────
         sim_frame = ttk.LabelFrame(left, text="Simülasyon Kontrolleri")
@@ -642,6 +645,24 @@ class App(tk.Tk):
         self.box.bnc_ttl(config.BNC_DS_PLUS_VOLTAGE, config.BNC_DS_PLUS_DURATION)
         logging.getLogger("HW").info(
             f"BNC TTL gönderildi: {config.BNC_DS_PLUS_VOLTAGE}V / {config.BNC_DS_PLUS_DURATION}ms")
+
+    # ── Rapor ─────────────────────────────────────────────────────────────────
+
+    def _generate_report(self):
+        import report as rpt
+        csv_path = filedialog.askopenfilename(
+            title="CSV Dosyası Seç",
+            initialdir=config.LOG_DIR,
+            filetypes=[("CSV", "*.csv"), ("Tüm dosyalar", "*.*")]
+        )
+        if not csv_path:
+            return
+        try:
+            report_path = rpt.generate_report(csv_path)
+            webbrowser.open(f"file://{os.path.abspath(report_path)}")
+            logging.getLogger("App").info(f"Rapor oluşturuldu: {report_path}")
+        except Exception as e:
+            messagebox.showerror("Hata", str(e))
 
     # ── Lever-Su senkronu ─────────────────────────────────────────────────────
 
