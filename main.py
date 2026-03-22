@@ -236,6 +236,42 @@ class App(tk.Tk):
         self.btn_lever.pack(side="left", expand=True, fill="x", padx=2)
         self.btn_lick.pack(side="left", expand=True, fill="x", padx=2)
 
+        # ── Donanım Testi ─────────────────
+        hw_frame = ttk.LabelFrame(left, text="Donanım Testi")
+        hw_frame.pack(fill="x", pady=4)
+
+        ttk.Label(hw_frame, text="Bağlan'dan sonra kullan. Deney sırasında kullanma.",
+                  foreground="gray", wraplength=220).pack(padx=8, pady=2, anchor="w")
+
+        r1 = ttk.Frame(hw_frame); r1.pack(fill="x", padx=8, pady=2)
+        self.btn_hw_lever_ext = ttk.Button(r1, text="Lever Çıkar",  command=self._hw_lever_extend, state="disabled")
+        self.btn_hw_lever_ret = ttk.Button(r1, text="Lever Geri Al", command=self._hw_lever_retract, state="disabled")
+        self.btn_hw_lever_ext.pack(side="left", expand=True, fill="x", padx=2)
+        self.btn_hw_lever_ret.pack(side="left", expand=True, fill="x", padx=2)
+
+        r2 = ttk.Frame(hw_frame); r2.pack(fill="x", padx=8, pady=2)
+        self.btn_hw_water = ttk.Button(r2, text="Su Ver", command=self._hw_water, state="disabled")
+        self.btn_hw_shock = ttk.Button(r2, text="Şok (0.2 sn)", command=self._hw_shock, state="disabled")
+        self.btn_hw_water.pack(side="left", expand=True, fill="x", padx=2)
+        self.btn_hw_shock.pack(side="left", expand=True, fill="x", padx=2)
+
+        r3 = ttk.Frame(hw_frame); r3.pack(fill="x", padx=8, pady=2)
+        self.btn_hw_cue_on  = ttk.Button(r3, text="Cue DS+ (Yeşil)", command=self._hw_cue_on,  state="disabled")
+        self.btn_hw_cue_off = ttk.Button(r3, text="Cue Söndür",      command=self._hw_cue_off, state="disabled")
+        self.btn_hw_cue_on.pack(side="left", expand=True, fill="x", padx=2)
+        self.btn_hw_cue_off.pack(side="left", expand=True, fill="x", padx=2)
+
+        r4 = ttk.Frame(hw_frame); r4.pack(fill="x", padx=8, pady=2)
+        self.btn_hw_bnc = ttk.Button(r4, text="BNC TTL Gönder (100ms)", command=self._hw_bnc, state="disabled")
+        self.btn_hw_bnc.pack(fill="x", padx=2)
+
+        self._hw_buttons = [
+            self.btn_hw_lever_ext, self.btn_hw_lever_ret,
+            self.btn_hw_water, self.btn_hw_shock,
+            self.btn_hw_cue_on, self.btn_hw_cue_off,
+            self.btn_hw_bnc,
+        ]
+
         # ════════════════════════════════
         # SAĞ PANEL
         # ════════════════════════════════
@@ -361,6 +397,8 @@ class App(tk.Tk):
             self.btn_ds_minus.configure(state="normal")
             self.btn_lever.configure(state="normal")
             self.btn_lick.configure(state="normal")
+        for b in self._hw_buttons:
+            b.configure(state="normal")
 
         logging.getLogger("App").info("Bağlantı kuruldu.")
 
@@ -502,6 +540,49 @@ class App(tk.Tk):
             self.lbl_iti_trial._var.set(str(trial_presses))
             self.lbl_iti_total._var.set(str(total_presses))
         self.after(0, _update)
+
+    # ── Donanım Testi ─────────────────────────────────────────────────────────
+
+    def _hw_lever_extend(self):
+        self.box.lever_extend(config.LEVER_SIDE)
+        logging.getLogger("HW").info("Lever çıkarıldı")
+
+    def _hw_lever_retract(self):
+        self.box.lever_retract(config.LEVER_SIDE)
+        logging.getLogger("HW").info("Lever geri alındı")
+
+    def _hw_water(self):
+        import threading
+        def _run():
+            for _ in range(config.WATER_PULSES):
+                self.box.water(config.WATER_SIDE)
+                import time; time.sleep(config.WATER_PULSE_GAP_S)
+        threading.Thread(target=_run, daemon=True).start()
+        logging.getLogger("HW").info(f"Su: {config.WATER_PULSES} pulse")
+
+    def _hw_shock(self):
+        import threading, time
+        def _run():
+            self.box.shock_current(config.SHOCK_CURRENT_MA)
+            self.box.shock(True)
+            time.sleep(0.2)
+            self.box.shock(False)
+        threading.Thread(target=_run, daemon=True).start()
+        logging.getLogger("HW").info(f"Şok: 0.2 sn / {config.SHOCK_CURRENT_MA} mA")
+
+    def _hw_cue_on(self):
+        r, g, b = config.CUE_DS_PLUS_COLOR
+        self.box.cue_light(config.LEVER_SIDE, r, g, b)
+        logging.getLogger("HW").info("Cue light DS+ (yeşil) yakıldı")
+
+    def _hw_cue_off(self):
+        self.box.cue_light_off(config.LEVER_SIDE)
+        logging.getLogger("HW").info("Cue light söndürüldü")
+
+    def _hw_bnc(self):
+        self.box.bnc_ttl(config.BNC_DS_PLUS_VOLTAGE, config.BNC_DS_PLUS_DURATION)
+        logging.getLogger("HW").info(
+            f"BNC TTL gönderildi: {config.BNC_DS_PLUS_VOLTAGE}V / {config.BNC_DS_PLUS_DURATION}ms")
 
     # ── Lever-Su senkronu ─────────────────────────────────────────────────────
 
