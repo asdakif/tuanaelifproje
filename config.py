@@ -1,0 +1,58 @@
+# ─── Donanım Ayarları ──────────────────────────────────────────────────────────
+BOX_PORT          = "COM3"  # Operant box seri port
+TTL_PORT          = ""      # UltraSoundGate TTL portu (boş = simülasyon modu)
+AVISOFT_DOUT_PORT = ""      # Avisoft Player DOUT onay portu (boş = devre dışı)
+CHANNEL           = 0x01    # Kutu kanal numarası (1-4)
+
+# ─── Oturum Metadata ───────────────────────────────────────────────────────────
+ANIMAL_ID = ""   # Her deney başında GUI'den girilir
+
+# ─── Deney Parametreleri ───────────────────────────────────────────────────────
+NUM_TRIALS        = 50     # Toplam trial sayısı
+DS_PLUS_RATIO     = 0.5    # DS+ trial oranı (0.5 = %50)
+ITI_MIN_S         = 5.0    # Minimum inter-trial interval (saniye)
+ITI_MAX_S         = 10.0   # Maksimum inter-trial interval (saniye)
+DS_DURATION_S     = 10.0   # DS cue süresi (saniye)
+RESPONSE_WINDOW_S = 10.0   # Lever press bekleme süresi (saniye)
+SHOCK_DURATION_S  = 0.5    # Şok süresi (saniye)
+SHOCK_CURRENT_MA  = 0.2    # Şok akım şiddeti (mA) — 0.1 ile 0.4 arası
+
+# ─── Outcome Ayarları ─────────────────────────────────────────────────────────
+# Her DS tipi için lever basıldığında ne olacağını belirle.
+# Seçenekler: "reward" (su) veya "punishment" (şok)
+DS_PLUS_OUTCOME  = "reward"       # DS+ + lever press → ödül
+DS_MINUS_OUTCOME = "punishment"   # DS− + lever press → ceza
+
+# ─── Su Ödülü ─────────────────────────────────────────────────────────────────
+WATER_SIDE        = 0x01   # 0x01 = sol, 0x02 = sağ
+WATER_PULSES      = 3      # Her ödülde kaç pulse (damla)
+WATER_PULSE_GAP_S = 0.1    # Pulse'lar arası bekleme (saniye)
+LICK_WINDOW_S     = 10.0   # Ödülden sonra lick sayma süresi (saniye)
+
+# ─── Lever Ayarları ────────────────────────────────────────────────────────────
+LEVER_SIDE = 0x01         # 0x01 = sol, 0x02 = sağ
+LEVER_EXTEND_ON_DS = True # True: DS başlayınca lever çıkar (False: response window'da çıkar)
+
+# ─── Işık Renkleri (R, G, B) ──────────────────────────────────────────────────
+CUE_DS_PLUS_COLOR  = (0,   255, 0)    # DS+ → Yeşil
+CUE_DS_MINUS_COLOR = (255, 0,   0)    # DS− → Kırmızı
+HOUSE_LIGHT_COLOR  = (255, 255, 255)  # Beyaz (ITI sırasında)
+
+# ─── Avisoft Playlist ─────────────────────────────────────────────────────────
+# Deney başında Python bu dosyayı üretir, sen Avisoft'ta açarsın.
+DS_PLUS_WAV        = r"C:\sounds\ds_plus.wav"   # DS+ ses dosyası yolu
+DS_MINUS_WAV       = r"C:\sounds\ds_minus.wav"  # DS− ses dosyası yolu
+AVISOFT_PLAYLIST   = r"C:\sounds\playlist.txt"  # Avisoft'un okuyacağı playlist
+
+# ─── Avisoft BNC TTL Trigger ──────────────────────────────────────────────────
+# DS sunumu başında operant kutu BNC çıkışından Avisoft'a TTL pulse gönderilir.
+# Avisoft bu pulse'u trigger olarak alır ve ilgili sesi çalar.
+# DS+ ve DS− farklı süre ile ayırt edilir.
+BNC_DS_PLUS_VOLTAGE  = 3.3   # Volt (0.1 – 3.3)
+BNC_DS_PLUS_DURATION = 100   # ms  → Avisoft "DS+ sesi" çalar
+
+BNC_DS_MINUS_VOLTAGE  = 3.3  # Volt
+BNC_DS_MINUS_DURATION = 200  # ms  → Avisoft "DS− sesi" çalar
+
+# ─── Log Klasörü ───────────────────────────────────────────────────────────────
+LOG_DIR = "logs"

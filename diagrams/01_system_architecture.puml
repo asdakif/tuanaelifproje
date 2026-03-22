@@ -1,0 +1,79 @@
+@startuml System Architecture
+!theme cerulean-outline
+title Operant Koşullanma Sistemi — Donanım Mimarisi
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FAFAFA
+skinparam component {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+    FontSize 12
+}
+skinparam database {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+}
+skinparam node {
+    BackgroundColor #FFF9C4
+    BorderColor #F57F17
+}
+
+node "Bilgisayar (Windows)" as PC {
+    component "Deney Yazılımı\n(Python / Tkinter GUI)" as SW
+    component "Avisoft RECORDER" as AVI
+    database "CSV Log\nlogs/session_AnimalID_*.csv\n─────────────────────\nanimal_id | trial | ds_type | result\nrt_from_ds_s | rt_from_lever_s\nlick_count | iti_presses\nhit_rate | cr_rate | d_prime" as CSV
+    database "playlist.txt\n─────────────\nds_plus.wav\nds_minus.wav\nds_plus.wav\n..." as PL
+}
+
+node "Operant Kutu\n(Conduct Science — COM3, 115200 baud)" as BOX {
+    component "Sol Lever\n(0x01)" as LLEV
+    component "Sağ Lever\n(0x02)" as RLEV
+    component "Su Dispenseri\n+ Lickmetre" as WAT
+    component "Şok Jeneratörü\n(0.1–0.4 mA ayarlanabilir)" as SHK
+    component "Cue Light RGB\n(sol veya sağ)" as CUE
+    component "House Light\n(RGB)" as HL
+    component "BNC TTL Çıkışı" as BNC
+}
+
+node "Avisoft Player 116H" as PLAYER {
+    component "TRG Girişi\n(TTL input)" as TRG
+    component "DOUT Çıkışı\n(ses onayı — opsiyonel)" as DOUT
+    component "LINE OUT" as LOUT
+}
+
+node "Ses Sistemi" as AUDIO {
+    component "Amplifikatör" as AMP
+    component "Hoparlör\n(Ultrasonik)" as SPK
+}
+
+SW -down-> BOX : "Komutlar (seri port)\n──────────────────\ncue_light(R,G,B)\nlever_extend/retract(sol|sağ)\nwater(pulse)\nshock(on|off)\nshock_current(0.1–0.4mA)\nbnc_ttl(V, ms)"
+
+BOX -up-> SW : "Olaylar (seri port)\n──────────────────\nlever_press (ITI'da → iti_presses++)\nlever_press (RESPONSE'da → RT hesapla)\nlick_event → lick_count++\nfood_empty"
+
+SW -right-> CSV : "Her trial sonunda\notomatik kaydedilir\n(animal_id dahil)"
+SW -right-> PL  : "Deney başında\notomatik üretilir"
+PL -down-> AVI  : "Kullanıcı açar\n(stop after each file ✓)"
+BNC -right-> TRG : "BNC kablo\n──────────\nDS+: 3.3V / 100ms\nDS−: 3.3V / 200ms"
+AVI --> PLAYER  : "USB"
+DOUT --> SW     : "Ses onayı\n(opsiyonel port)"
+LOUT -right-> AMP : "Analog"
+AMP  -right-> SPK : "Ultrasonik ses"
+
+note top of BOX
+  Aktif lever GUI'den seçilir: Sol (0x01) veya Sağ (0x02)
+  Lever DS başlayınca veya yanıt penceresinde çıkar (ayarlanabilir)
+  ITI'daki lever basışları ayrıca sayılır (impulsivite)
+end note
+
+note bottom of PLAYER
+  Avisoft: "stop after each file" işaretli
+  Her TRG pulse → sıradaki ses dosyası çalar
+  DOUT opsiyonel — ses onayı için kullanılabilir
+end note
+
+legend right
+  Arduino veya ek donanım GEREKMİYOR.
+  Tek BNC kablo: Operant Kutu BNC → Avisoft TRG.
+endlegend
+
+@enduml

@@ -1,0 +1,137 @@
+@startuml Trial Flow
+!theme cerulean-outline
+title Tek Trial Akışı — DS+/DS− Operant Koşullanma Paradigması
+
+skinparam backgroundColor #FAFAFA
+skinparam activity {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+    DiamondBackgroundColor #FFF9C4
+    DiamondBorderColor #F57F17
+    FontSize 12
+}
+
+|#E8F5E9| Yazılım (Python) |
+|#FFF9C4| Operant Kutu |
+|#E3F2FD| Avisoft Player 116H |
+|#FCE4EC| Hayvan |
+
+start
+
+|Yazılım (Python)|
+:Oturum başlatıldı\nHayvan ID girildi (zorunlu)\nTrial sırası üretildi\n(max N üst üste kısıtı)\nplaylist.txt otomatik üretildi\nCSV log açıldı (animal_id dahil);
+
+|Yazılım (Python)|
+:**ITI Başlar**
+House Light: AÇIK (beyaz)
+Seçili lever: İÇERİDE
+Cue light: KAPALI
+Süre: rastgele ITI_MIN – ITI_MAX sn;
+
+|Operant Kutu|
+:House light yanar\nLever geri çekilmiş;
+
+|Hayvan|
+if (ITI sırasında lever'a bastı mı?) then (EVET)
+    |Yazılım (Python)|
+    :iti_presses++\ntotal_iti_presses++\nLog'a uyarı yazılır\n(impulsivite kaydı);
+else (HAYIR)
+endif
+
+|Yazılım (Python)|
+:**DS Sunumu Başlar**
+ds_onset_time = şu an;
+
+if (DS tipi?) then (DS+)
+    |Operant Kutu|
+    :Cue Light: YEŞİL\n(seçili taraf);
+    |Yazılım (Python)|
+    :BNC TTL: 3.3V / 100ms → Avisoft;
+    |Avisoft Player 116H|
+    :ds_plus.wav çalar\n(ultrasonik);
+else (DS−)
+    |Operant Kutu|
+    :Cue Light: KIRMIZI\n(seçili taraf);
+    |Yazılım (Python)|
+    :BNC TTL: 3.3V / 200ms → Avisoft;
+    |Avisoft Player 116H|
+    :ds_minus.wav çalar\n(ultrasonik);
+endif
+
+|Yazılım (Python)|
+if (LEVER_EXTEND_ON_DS = True?) then (EVET)
+    |Operant Kutu|
+    :Seçili lever UZATILIR\nlever_extend_time = şu an;
+    |Yazılım (Python)|
+    :DS süresi beklenir;
+else (HAYIR)
+    |Yazılım (Python)|
+    :DS süresi beklenir;
+    |Operant Kutu|
+    :Seçili lever UZATILIR\nlever_extend_time = şu an;
+endif
+
+|Yazılım (Python)|
+:**Yanıt Penceresi**
+Süre: RESPONSE_WINDOW_S sn;
+
+|Hayvan|
+:Lever'ı görür;
+
+if (Hayvan lever'a bastı mı?) then (EVET — lever press event geldi)
+    |Yazılım (Python)|
+    :rt_from_ds_s    = şu an − ds_onset_time
+rt_from_lever_s = şu an − lever_extend_time;
+    |Operant Kutu|
+    :Lever geri çekilir\nCue light söner;
+
+    if (Outcome?) then (ÖDÜL\noutcome = reward)
+        |Operant Kutu|
+        :Su dispenseri:\nWATER_PULSES kez pulse;
+        |Hayvan|
+        :Su içer / yalamaya başlar;
+        |Operant Kutu|
+        :Lickmetre lick eventi gönderir;
+        |Yazılım (Python)|
+        :lick_count++ (LICK_WINDOW_S süre boyunca);
+    else (CEZA\noutcome = punishment)
+        |Yazılım (Python)|
+        :shock_current(SHOCK_CURRENT_MA mA);
+        |Operant Kutu|
+        :Şok: SHOCK_DURATION_S sn;
+    endif
+
+else (HAYIR — Süre doldu)
+    |Operant Kutu|
+    :Lever geri çekilir\nCue light söner;
+
+    if (DS tipi?) then (DS+)
+        |Yazılım (Python)|
+        :OMISSION\n(hata — basması gerekirdi);
+    else (DS−)
+        |Yazılım (Python)|
+        :CORRECT REJECTION\n(doğru — basmamalıydı);
+    endif
+endif
+
+|Yazılım (Python)|
+:**CSV'ye Kaydedilir**
+animal_id | trial | ds_type | result
+rt_from_ds_s | rt_from_lever_s
+lick_count | iti_presses
+hit_rate | cr_rate | d_prime
+timestamp;
+
+|Yazılım (Python)|
+:Diskriminasyon güncellenir\nHit Rate / CR Rate / d';
+
+if (Tüm trial'lar bitti mi?) then (EVET)
+    |Yazılım (Python)|
+    :SESSION END\nSonuç popup'ı:
+Hit Rate | CR Rate | d' gösterilir;
+    stop
+else (HAYIR)
+    -> Sonraki ITI;
+endif
+
+@enduml

@@ -1,0 +1,124 @@
+@startuml State Machine
+!theme cerulean-outline
+title Deney State Machine — Tüm Durumlar ve Geçişler
+
+skinparam backgroundColor #FAFAFA
+skinparam state {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+    FontSize 12
+    AttributeFontSize 10
+    AttributeFontColor #444444
+}
+
+[*] --> IDLE
+
+state IDLE {
+    IDLE : ● Hayvan ID girilir (zorunlu)
+    IDLE : ● Lever seçilir: Sol (0x01) veya Sağ (0x02)
+    IDLE : ● DS+ outcome: reward / punishment
+    IDLE : ● DS− outcome: reward / punishment
+    IDLE : ● Şok akımı (0.1–0.4 mA) ayarlanır
+    IDLE : ● Avisoft DOUT port (opsiyonel)
+    IDLE : ● Playlist henüz üretilmedi
+}
+
+state ITI {
+    ITI : ● House light AÇIK (beyaz)
+    ITI : ● Seçili lever İÇERİDE
+    ITI : ● Cue light KAPALI
+    ITI : ● Süre: rastgele ITI_MIN – ITI_MAX sn
+    ITI : ● ITI'daki lever basışları sayılır → iti_presses
+}
+
+state DS_ON {
+    DS_ON : ● Cue light YANIYOR (DS+ → YEŞİL, DS− → KIRMIZI)
+    DS_ON : ● BNC TTL gönderildi → Avisoft ses çalıyor
+    DS_ON : ● ds_onset_time kaydedildi
+    DS_ON : ● LEVER_EXTEND_ON_DS=True → lever şimdi çıkar
+    DS_ON : ● Avisoft DOUT onayı beklenir (opsiyonel, 2sn)
+    DS_ON : ● Süre: DS_DURATION_S sn
+}
+
+state RESPONSE {
+    RESPONSE : ● Lever UZATILDI → lever_extend_time kaydedildi
+    RESPONSE : ● Hayvan basabilir
+    RESPONSE : ● Süre: RESPONSE_WINDOW_S sn
+    RESPONSE : ● rt_from_ds_s    = press_time − ds_onset_time
+    RESPONSE : ● rt_from_lever_s = press_time − lever_extend_time
+}
+
+state OUTCOME {
+    state "ÖDÜL\n(outcome=reward)" as REWARD {
+        REWARD : ● Su: WATER_PULSES pulse
+        REWARD : ● Lick penceresi: LICK_WINDOW_S sn
+        REWARD : ● lick_count sayılır
+    }
+    state "CEZA\n(outcome=punishment)" as PUNISH {
+        PUNISH : ● shock_current(mA) ayarlanır
+        PUNISH : ● Şok: SHOCK_DURATION_S sn
+    }
+    state "OMISSION\n(DS+ + basılmadı)" as OMIT {
+        OMIT : ● Hata — basması gerekirdi
+        OMIT : ● Hit rate düşer
+    }
+    state "CORRECT REJECTION\n(DS− + basılmadı)" as CR {
+        CR : ● Doğru yanıt
+        CR : ● CR rate artar
+    }
+}
+
+state SESSION_END {
+    SESSION_END : ● Tüm NUM_TRIALS tamamlandı
+    SESSION_END : ● CSV kaydedildi
+    SESSION_END : ● Popup: Hit Rate | CR Rate | d'
+}
+
+IDLE       --> ITI          : ▶ Başlat\n(animal_id zorunlu)\n────────────\nTrial sırası üretilir\n(max N üst üste kısıtı)\nplaylist.txt üretilir\nCSV açılır
+
+ITI        --> DS_ON        : ITI süresi doldu
+DS_ON      --> RESPONSE     : DS süresi doldu
+RESPONSE   --> REWARD       : Lever basıldı + outcome=reward
+RESPONSE   --> PUNISH       : Lever basıldı + outcome=punishment
+RESPONSE   --> OMIT         : Süre doldu + DS+
+RESPONSE   --> CR           : Süre doldu + DS−
+
+REWARD     --> ITI          : Lick penceresi kapandı
+PUNISH     --> ITI          : Şok bitti
+OMIT       --> ITI          : —
+CR         --> ITI          : —
+
+ITI        --> SESSION_END  : Son trial tamamlandı
+SESSION_END --> IDLE        : Yeni hayvan / yeni deney
+
+RESPONSE   --> IDLE         : ⏹ Durdur
+ITI        --> IDLE         : ⏹ Durdur
+DS_ON      --> IDLE         : ⏹ Durdur
+
+note right of ITI
+  lever_press eventi gelirse:
+  → iti_presses++
+  → log'a WARNING yazılır
+  (impulsivite / anticipatory)
+end note
+
+note right of RESPONSE
+  İki ayrı RT ölçümü:
+  ─────────────────────
+  rt_from_ds_s:
+    DS başlangıcından basışa
+  rt_from_lever_s:
+    Lever uzayınca basışa
+end note
+
+note right of OUTCOME
+  Her trial sonunda güncellenir:
+  ─────────────────────
+  Hit Rate = DS+ basış / DS+ trial
+  CR Rate  = DS− basılmayış / DS− trial
+  d'       = Z(hit) − Z(false_alarm)
+  ─────────────────────
+  CSV'ye kaydedilir + GUI'de canlı
+end note
+
+@enduml

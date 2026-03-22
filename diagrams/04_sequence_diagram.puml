@@ -1,0 +1,123 @@
+@startuml Sequence Diagram
+!theme cerulean-outline
+title Tam Oturum: Kurulum + DS+ Trial (Ödül) + DS− Trial (Correct Rejection) + ITI Press
+
+skinparam backgroundColor #FAFAFA
+skinparam sequence {
+    ActorBackgroundColor #E3F2FD
+    ActorBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    ParticipantBorderColor #1565C0
+    LifeLineBorderColor #AAAAAA
+    ArrowColor #333333
+    ArrowFontSize 10
+}
+
+actor       "Kullanıcı"            as USER
+participant "GUI\n(Tkinter)"       as GUI
+participant "Yazılım\n(Python)"    as SW
+participant "Operant Kutu"         as BOX
+participant "Avisoft\nPlayer 116H" as AVI
+actor       "Hayvan"               as RAT
+
+== Oturum Kurulumu ==
+
+USER -> GUI : Hayvan ID = "RAT_01" girer
+USER -> GUI : Parametreler: DS+ outcome=reward,\nDS− outcome=punishment,\nLever=Sol, Şok=0.2mA, Su=3 pulse
+USER -> GUI : ▶ Başlat
+
+GUI -> SW : start(max_consecutive=3, animal_id="RAT_01")
+SW  -> SW : Trial sırası üret (50 trial, max 3 üst üste)
+SW  -> SW : playlist.txt yaz\n(her satır = trial'ın .wav dosyası)
+SW  -> SW : CSV aç: session_RAT_01_20260322_224500.csv
+
+GUI -> USER : "playlist.txt hazır!\nAvisoft'ta aç, stop after each file işaretle"
+USER -> AVI : Playlist → Open → playlist.txt\n"stop after each file" ✓
+
+== Trial 1: DS+ — Ödül (Hit) ==
+
+SW -> BOX : house_light(255,255,255)
+SW -> BOX : lever_retract(sol)
+note over SW : ITI: 7.3 sn (hayvan bekledi, basmadı)
+
+SW -> SW : ds_onset_time = T₀
+SW -> BOX : cue_light(sol, 0,255,0) → YEŞİL
+SW -> BOX : bnc_ttl(3.3V, 100ms)
+BOX -> AVI : TTL pulse (100ms)
+AVI -> RAT : 🔊 ds_plus.wav (ultrasonik)
+SW -> BOX : lever_extend(sol) [LEVER_EXTEND_ON_DS=True]
+SW -> SW  : lever_extend_time = T₁
+
+note over SW : DS süresi: 10 sn
+
+RAT -> BOX : Sol lever'a basar (T₂)
+BOX -> SW  : lever_press event (sol)
+SW  -> SW  : rt_from_ds_s    = T₂ − T₀ = 12.34s\nrt_from_lever_s = T₂ − T₁ = 2.34s
+
+SW -> BOX : lever_retract(sol)
+SW -> BOX : cue_light_off(sol)
+SW -> BOX : water(sol) × 3 pulse
+
+note over SW,RAT : Lick penceresi (10 sn)
+RAT -> BOX : Yalamaya başlar
+BOX -> SW  : lick event × 8
+SW  -> SW  : lick_count = 8
+
+SW -> SW : CSV: RAT_01 | 1 | DS+ | rewarded\n        rt_ds=12.34 | rt_lever=2.34 | licks=8\n        iti=0 | hit=100% | cr=— | d'=—
+
+== Trial 2: DS− — Correct Rejection ==
+
+SW -> BOX : house_light(255,255,255)
+SW -> BOX : lever_retract(sol)
+note over SW : ITI: 6.1 sn
+
+SW -> SW  : ds_onset_time = T₃
+SW -> BOX : cue_light(sol, 255,0,0) → KIRMIZI
+SW -> BOX : bnc_ttl(3.3V, 200ms)
+BOX -> AVI : TTL pulse (200ms)
+AVI -> RAT : 🔊 ds_minus.wav (ultrasonik)
+SW -> BOX : lever_extend(sol)
+SW -> SW  : lever_extend_time = T₄
+
+note over SW : DS süresi: 10 sn\nYanıt penceresi: 10 sn
+
+note over RAT : Lever'ı görür ama BASMAZ ✓
+
+note over SW : Süre doldu → DS− + basılmadı
+
+SW -> BOX : lever_retract(sol)
+SW -> BOX : cue_light_off(sol)
+
+SW -> SW : CORRECT REJECTION ✓\ncr_rate artar
+
+SW -> SW : CSV: RAT_01 | 2 | DS- | correct_rejection\n        rt_ds= | rt_lever= | licks=0\n        iti=0 | hit=100% | cr=100% | d'=4.65
+
+GUI -> USER : Hit: 100% | CR: 100% | d': 4.65 (canlı güncellendi)
+
+== Trial 3: DS+ — ITI'da Lever Press (Impulsivite) ==
+
+SW -> BOX : house_light(255,255,255)
+SW -> BOX : lever_retract(sol)
+note over SW : ITI: 8.5 sn
+
+RAT -> BOX : ITI sırasında lever'a basar! (anticipatory)
+BOX -> SW  : lever_press event (ITI state'inde)
+SW  -> SW  : iti_presses++ = 1\ntotal_iti_presses++ = 1
+SW  -> GUI : ITI press uyarısı → GUI'de gösterilir
+note over SW : ITI devam eder, trial etkilenmez
+
+SW -> SW  : ds_onset_time = T₅
+SW -> BOX : cue_light(sol, 0,255,0) → YEŞİL
+SW -> BOX : bnc_ttl(3.3V, 100ms)
+BOX -> AVI : TTL pulse (100ms)
+AVI -> RAT : 🔊 ds_plus.wav
+
+SW -> SW : CSV: RAT_01 | 3 | DS+ | ...\n        iti_presses=1 (kaydedildi!)
+
+== Deney Sonu ==
+
+note over SW : 50 trial tamamlandı
+SW -> GUI : SESSION_END
+GUI -> USER : Popup:\n"Hayvan: RAT_01\nHit Rate: 78%\nCR Rate: 82%\nd': 1.73\nLog: session_RAT_01_20260322_224500.csv"
+
+@enduml
