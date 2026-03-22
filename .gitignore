@@ -4,3 +4,5 @@ __pycache__/
 logs/
 *.csv
 .DS_Store
+playlist.txt
+*.xlsx
