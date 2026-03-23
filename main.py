@@ -616,7 +616,7 @@ class App(tk.Tk):
         self.box.shock_current(config.SHOCK_CURRENT_MA)
         self.box.shock(True)
         logging.getLogger("HW").info(f"Şok: 0.2 sn / {config.SHOCK_CURRENT_MA} mA")
-        self.after(200, lambda: self.box.shock(False))
+        self.after(int(config.SHOCK_DURATION_S * 1000), lambda: self.box.shock(False))
 
     def _hw_cue_on(self):
         r, g, b = config.CUE_DS_PLUS_COLOR
