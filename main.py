@@ -601,11 +601,13 @@ class App(tk.Tk):
     # ── Donanım Testi ─────────────────────────────────────────────────────────
 
     def _hw_lever_extend(self):
-        self.box.lever_extend(config.LEVER_SIDE)
+        side = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
+        self.box.lever_extend(side)
         logging.getLogger("HW").info("Lever çıkarıldı")
 
     def _hw_lever_retract(self):
-        self.box.lever_retract(config.LEVER_SIDE)
+        side = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
+        self.box.lever_retract(side)
         logging.getLogger("HW").info("Lever geri alındı")
 
     def _hw_water(self):
@@ -636,9 +638,11 @@ class App(tk.Tk):
         logging.getLogger("HW").info("Cue light söndürüldü")
 
     def _hw_bnc(self):
-        self.box.bnc_ttl(config.BNC_DS_PLUS_VOLTAGE, config.BNC_DS_PLUS_DURATION)
+        voltage = float(self.var_ttl_voltage.get())
+        duration = int(self.var_ttl_plus_dur.get())
+        self.box.bnc_ttl(voltage, duration)
         logging.getLogger("HW").info(
-            f"BNC TTL gönderildi: {config.BNC_DS_PLUS_VOLTAGE}V / {config.BNC_DS_PLUS_DURATION}ms")
+            f"BNC TTL gönderildi: {voltage}V / {duration}ms")
 
     # ── Rapor ─────────────────────────────────────────────────────────────────
 
