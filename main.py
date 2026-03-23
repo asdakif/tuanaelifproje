@@ -619,9 +619,10 @@ class App(tk.Tk):
 
     def _hw_shock(self):
         dur = self._hw_shock_dur.get()
-        self.box.shock_current(config.SHOCK_CURRENT_MA)
+        ma = float(self.var_shock_ma.get())
+        self.box.shock_current(ma)
         self.box.shock(True)
-        logging.getLogger("HW").info(f"Şok: {dur} sn / {config.SHOCK_CURRENT_MA} mA")
+        logging.getLogger("HW").info(f"Şok: {dur} sn / {ma} mA")
         self.after(int(dur * 1000), lambda: self.box.shock(False))
 
     def _hw_cue_on(self):
