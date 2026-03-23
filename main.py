@@ -610,12 +610,13 @@ class App(tk.Tk):
 
     def _hw_water(self):
         import threading
+        pulses = int(self.var_water_pulses.get())
         def _run():
-            for _ in range(config.WATER_PULSES):
+            for _ in range(pulses):
                 self.box.water(config.WATER_SIDE)
                 import time; time.sleep(config.WATER_PULSE_GAP_S)
         threading.Thread(target=_run, daemon=True).start()
-        logging.getLogger("HW").info(f"Su: {config.WATER_PULSES} pulse")
+        logging.getLogger("HW").info(f"Su: {pulses} pulse")
 
     def _hw_shock(self):
         dur = self._hw_shock_dur.get()
