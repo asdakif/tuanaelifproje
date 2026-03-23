@@ -629,12 +629,14 @@ class App(tk.Tk):
         self.after(int(dur * 1000), lambda: self.box.shock(False))
 
     def _hw_cue_on(self):
+        side = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
         r, g, b = config.CUE_DS_PLUS_COLOR
-        self.box.cue_light(config.LEVER_SIDE, r, g, b)
+        self.box.cue_light(side, r, g, b)
         logging.getLogger("HW").info("Cue light DS+ (yeşil) yakıldı")
 
     def _hw_cue_off(self):
-        self.box.cue_light_off(config.LEVER_SIDE)
+        side = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
+        self.box.cue_light_off(side)
         logging.getLogger("HW").info("Cue light söndürüldü")
 
     def _hw_bnc(self):
