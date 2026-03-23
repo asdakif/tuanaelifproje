@@ -255,9 +255,14 @@ class App(tk.Tk):
 
         r2 = ttk.Frame(hw_frame); r2.pack(fill="x", padx=8, pady=2)
         self.btn_hw_water = ttk.Button(r2, text="Su Ver", command=self._hw_water, state="disabled")
-        self.btn_hw_shock = ttk.Button(r2, text=f"Şok ({config.SHOCK_DURATION_S} sn)", command=self._hw_shock, state="disabled")
+        self.btn_hw_shock = ttk.Button(r2, text="Şok Ver", command=self._hw_shock, state="disabled")
         self.btn_hw_water.pack(side="left", expand=True, fill="x", padx=2)
         self.btn_hw_shock.pack(side="left", expand=True, fill="x", padx=2)
+
+        r2b = ttk.Frame(hw_frame); r2b.pack(fill="x", padx=8, pady=2)
+        ttk.Label(r2b, text="Şok süresi (sn):").pack(side="left", padx=4)
+        self._hw_shock_dur = tk.DoubleVar(value=config.SHOCK_DURATION_S)
+        ttk.Spinbox(r2b, from_=0.1, to=10.0, increment=0.1, textvariable=self._hw_shock_dur, width=6).pack(side="left")
 
         r3 = ttk.Frame(hw_frame); r3.pack(fill="x", padx=8, pady=2)
         self.btn_hw_cue_on  = ttk.Button(r3, text="Cue DS+ (Yeşil)", command=self._hw_cue_on,  state="disabled")
@@ -613,10 +618,11 @@ class App(tk.Tk):
         logging.getLogger("HW").info(f"Su: {config.WATER_PULSES} pulse")
 
     def _hw_shock(self):
+        dur = self._hw_shock_dur.get()
         self.box.shock_current(config.SHOCK_CURRENT_MA)
         self.box.shock(True)
-        logging.getLogger("HW").info(f"Şok: {config.SHOCK_DURATION_S} sn / {config.SHOCK_CURRENT_MA} mA")
-        self.after(int(config.SHOCK_DURATION_S * 1000), lambda: self.box.shock(False))
+        logging.getLogger("HW").info(f"Şok: {dur} sn / {config.SHOCK_CURRENT_MA} mA")
+        self.after(int(dur * 1000), lambda: self.box.shock(False))
 
     def _hw_cue_on(self):
         r, g, b = config.CUE_DS_PLUS_COLOR
