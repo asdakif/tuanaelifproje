@@ -255,7 +255,7 @@ class App(tk.Tk):
 
         r2 = ttk.Frame(hw_frame); r2.pack(fill="x", padx=8, pady=2)
         self.btn_hw_water = ttk.Button(r2, text="Su Ver", command=self._hw_water, state="disabled")
-        self.btn_hw_shock = ttk.Button(r2, text="Şok (0.2 sn)", command=self._hw_shock, state="disabled")
+        self.btn_hw_shock = ttk.Button(r2, text=f"Şok ({config.SHOCK_DURATION_S} sn)", command=self._hw_shock, state="disabled")
         self.btn_hw_water.pack(side="left", expand=True, fill="x", padx=2)
         self.btn_hw_shock.pack(side="left", expand=True, fill="x", padx=2)
 
@@ -615,7 +615,7 @@ class App(tk.Tk):
     def _hw_shock(self):
         self.box.shock_current(config.SHOCK_CURRENT_MA)
         self.box.shock(True)
-        logging.getLogger("HW").info(f"Şok: 0.2 sn / {config.SHOCK_CURRENT_MA} mA")
+        logging.getLogger("HW").info(f"Şok: {config.SHOCK_DURATION_S} sn / {config.SHOCK_CURRENT_MA} mA")
         self.after(int(config.SHOCK_DURATION_S * 1000), lambda: self.box.shock(False))
 
     def _hw_cue_on(self):
