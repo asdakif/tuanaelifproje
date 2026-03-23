@@ -613,14 +613,10 @@ class App(tk.Tk):
         logging.getLogger("HW").info(f"Su: {config.WATER_PULSES} pulse")
 
     def _hw_shock(self):
-        import threading, time
-        def _run():
-            self.box.shock_current(config.SHOCK_CURRENT_MA)
-            self.box.shock(True)
-            time.sleep(0.2)
-            self.box.shock(False)
-        threading.Thread(target=_run, daemon=True).start()
+        self.box.shock_current(config.SHOCK_CURRENT_MA)
+        self.box.shock(True)
         logging.getLogger("HW").info(f"Şok: 0.2 sn / {config.SHOCK_CURRENT_MA} mA")
+        self.after(200, lambda: self.box.shock(False))
 
     def _hw_cue_on(self):
         r, g, b = config.CUE_DS_PLUS_COLOR
