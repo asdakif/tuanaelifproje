@@ -310,6 +310,7 @@ class Experiment:
         self.iti_presses         = 0
         self._counting_licks     = False
         self._lever_extend_time  = None
+        self._lever_event.clear()
         self._emit_state()
 
         self.box.lever_retract(config.LEVER_SIDE)
@@ -367,12 +368,21 @@ class Experiment:
         else:
             self.log.info(f"Trial {self.trial_num} — {ds_type.value} sunuldu")
 
-        if self._stop_event.wait(config.DS_DURATION_S):
-            return
+        if config.LEVER_EXTEND_ON_DS:
+            # DS süresini bekle ama lever basılınca hemen çık
+            ds_end = time.time() + config.DS_DURATION_S
+            while not self._stop_event.is_set() and time.time() < ds_end:
+                remaining = ds_end - time.time()
+                if self._lever_event.wait(min(0.05, remaining)):
+                    break
+            if self._stop_event.is_set():
+                return
+        else:
+            if self._stop_event.wait(config.DS_DURATION_S):
+                return
 
         # ── 3. Yanıt Penceresi ────────────────────────────────────────────────
         self.state = State.RESPONSE
-        # If lever was already pressed during DS_ON, keep the event/flag intact
         if not self.lever_pressed:
             self._lever_event.clear()
         self._emit_state()
