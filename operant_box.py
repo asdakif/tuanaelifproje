@@ -202,7 +202,7 @@ class OperantBox:
 
     def water(self, side: int = 0x01):
         """Bir pulse su ver. side: 0x01=sol, 0x02=sağ."""
-        self._send(self._packet(self.CMD_WATER, side, 0x00, 0x00, 0x00))
+        self._send(self._packet(self.CMD_WATER, side, 0x01, 0x00, 0x00))
 
     def simulate_lick(self, side: str = 'left'):
         """Test için lick simüle et."""

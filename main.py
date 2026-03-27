@@ -200,17 +200,23 @@ class App(tk.Tk):
         ttk.Label(av_frame, text="DS+ .wav:").grid(row=0, column=0, sticky="w", **PAD)
         self.var_ds_plus_wav = tk.StringVar(value=config.DS_PLUS_WAV)
         ttk.Entry(av_frame, textvariable=self.var_ds_plus_wav, width=26).grid(row=0, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_wav(self.var_ds_plus_wav)).grid(row=0, column=2, **PAD)
 
         ttk.Label(av_frame, text="DS− .wav:").grid(row=1, column=0, sticky="w", **PAD)
         self.var_ds_minus_wav = tk.StringVar(value=config.DS_MINUS_WAV)
         ttk.Entry(av_frame, textvariable=self.var_ds_minus_wav, width=26).grid(row=1, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_wav(self.var_ds_minus_wav)).grid(row=1, column=2, **PAD)
 
         ttk.Label(av_frame, text="Playlist:").grid(row=2, column=0, sticky="w", **PAD)
         self.var_playlist = tk.StringVar(value=config.AVISOFT_PLAYLIST)
         ttk.Entry(av_frame, textvariable=self.var_playlist, width=26).grid(row=2, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=2, column=2, **PAD)
 
         ttk.Label(av_frame, text="Başlat'a basınca playlist otomatik üretilir.",
-                  foreground="gray").grid(row=3, column=0, columnspan=2, sticky="w", padx=8)
+                  foreground="gray").grid(row=3, column=0, columnspan=3, sticky="w", padx=8)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -412,6 +418,23 @@ class App(tk.Tk):
         logging.getLogger("App").info("Bağlantı kuruldu.")
 
     # ── Parametreler & Başlat ──────────────────────────────────────────────────
+
+    def _browse_wav(self, var: tk.StringVar):
+        path = filedialog.askopenfilename(
+            title="WAV dosyasını seç",
+            filetypes=[("WAV dosyaları", "*.wav"), ("Tüm dosyalar", "*.*")]
+        )
+        if path:
+            var.set(path)
+
+    def _browse_playlist(self, var: tk.StringVar):
+        path = filedialog.asksaveasfilename(
+            title="Playlist kayıt yeri",
+            defaultextension=".txt",
+            filetypes=[("Metin dosyası", "*.txt"), ("Tüm dosyalar", "*.*")]
+        )
+        if path:
+            var.set(path)
 
     def _apply_params(self) -> bool:
         try:
