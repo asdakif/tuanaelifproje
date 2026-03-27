@@ -131,12 +131,16 @@ class App(tk.Tk):
         self.var_ttl_port = tk.StringVar(value=config.TTL_PORT)
         ttk.Entry(conn_frame, textvariable=self.var_ttl_port, width=10).grid(row=1, column=1, **PAD)
 
+        ttk.Label(conn_frame, text="TTL pulse (s):").grid(row=2, column=0, sticky="w", **PAD)
+        self.var_ttl_trigger_dur = tk.StringVar(value=str(config.TTL_TRIGGER_DURATION_S))
+        ttk.Entry(conn_frame, textvariable=self.var_ttl_trigger_dur, width=10).grid(row=2, column=1, **PAD)
+
         self.var_simulated = tk.BooleanVar(value=True)
         ttk.Checkbutton(conn_frame, text="Simülasyon modu",
-                        variable=self.var_simulated).grid(row=2, column=0, columnspan=2, sticky="w", **PAD)
+                        variable=self.var_simulated).grid(row=3, column=0, columnspan=2, sticky="w", **PAD)
 
         self.btn_connect = ttk.Button(conn_frame, text="Bağlan", command=self._connect)
-        self.btn_connect.grid(row=3, column=0, columnspan=2, pady=6)
+        self.btn_connect.grid(row=4, column=0, columnspan=2, pady=6)
 
         # ── Deney Parametreleri ───────────
         param_frame = ttk.LabelFrame(left, text="Deney Parametreleri")
@@ -246,12 +250,6 @@ class App(tk.Tk):
         # ── Simülasyon ───────────────────
         sim_frame = ttk.LabelFrame(left, text="Simülasyon Kontrolleri")
         sim_frame.pack(fill="x", pady=4)
-
-        row = ttk.Frame(sim_frame); row.pack(fill="x", padx=8, pady=2)
-        self.btn_ds_plus  = ttk.Button(row, text="DS+", command=self._sim_ds_plus,  state="disabled")
-        self.btn_ds_minus = ttk.Button(row, text="DS−", command=self._sim_ds_minus, state="disabled")
-        self.btn_ds_plus.pack(side="left", expand=True, fill="x", padx=2)
-        self.btn_ds_minus.pack(side="left", expand=True, fill="x", padx=2)
 
         row2 = ttk.Frame(sim_frame); row2.pack(fill="x", padx=8, pady=2)
         self.btn_lever = ttk.Button(row2, text="Lever Bas", command=self._sim_lever, state="disabled")
@@ -421,9 +419,7 @@ class App(tk.Tk):
         self.btn_connect.configure(state="disabled")
         self.btn_start.configure(state="normal")
         self.btn_gen_playlist.configure(state="normal")
-        if simulated or ttl_port == "":
-            self.btn_ds_plus.configure(state="normal")
-            self.btn_ds_minus.configure(state="normal")
+        if simulated:
             self.btn_lever.configure(state="normal")
             self.btn_lick.configure(state="normal")
         for b in self._hw_buttons:
@@ -484,6 +480,7 @@ class App(tk.Tk):
             config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
             config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
             config.AVISOFT_DOUT_PORT         = self.var_dout_port.get().strip()
+            config.TTL_TRIGGER_DURATION_S    = float(self.var_ttl_trigger_dur.get())
             self._max_consec             = int(self.var_max_consec.get())
             config.CRITERION_HIT_RATE    = float(self.var_criterion_hit.get())
             config.CRITERION_DPRIME      = float(self.var_criterion_dprime.get())
@@ -531,12 +528,6 @@ class App(tk.Tk):
             return
         path = self.exp.prepare_playlist(self._max_consec)
         messagebox.showinfo("Playlist Oluşturuldu", f"Playlist kaydedildi:\n{path}")
-
-    def _sim_ds_plus(self):
-        if self.ttl: self.ttl.simulate_ds_plus()
-
-    def _sim_ds_minus(self):
-        if self.ttl: self.ttl.simulate_ds_minus()
 
     def _sim_lever(self):
         if self.box: self.box.simulate_lever_press('left')

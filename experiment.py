@@ -99,7 +99,6 @@ class Experiment:
         # Thread kontrol
         self._stop_event  = threading.Event()
         self._lever_event = threading.Event()
-        self._ds_event    = threading.Event()
         self._main_thread: Optional[threading.Thread] = None
 
         # Callbacks
@@ -117,7 +116,6 @@ class Experiment:
         # Bağlantılar
         self.box.on('lever_press', self._on_lever_press)
         self.box.on('lick',        self._on_lick)
-        self.ttl.on_ds_signal(self._on_ds_signal)
 
     # ── Callback kayıt ────────────────────────────────────────────────────────
 
@@ -219,11 +217,6 @@ class Experiment:
                 except Exception as e:
                     self.log.error(f"Lick callback: {e}")
 
-    def _on_ds_signal(self, ds_type: str):
-        if self.state == State.DS_ON:
-            self.current_ds = DSType.PLUS if ds_type == "DS+" else DSType.MINUS
-            self._ds_event.set()
-
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
     def _launch_avisoft(self):
@@ -273,7 +266,6 @@ class Experiment:
     def stop(self):
         self._stop_event.set()
         self._lever_event.set()
-        self._ds_event.set()
         self._dout_event.set()
         self._in_iti = False
         self.log.info("Deney durduruldu")
@@ -343,6 +335,8 @@ class Experiment:
         self.current_ds     = ds_type
         self._ds_onset_time = time.time()
         self._emit_state()
+
+        self.ttl.send_trigger(config.TTL_TRIGGER_DURATION_S)
 
         if ds_type == DSType.PLUS:
             r, g, b = config.CUE_DS_PLUS_COLOR

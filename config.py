@@ -1,6 +1,7 @@
 # ─── Donanım Ayarları ──────────────────────────────────────────────────────────
 BOX_PORT          = "COM3"  # Operant box seri port
-TTL_PORT          = ""      # UltraSoundGate TTL portu (boş = simülasyon modu)
+TTL_PORT              = ""    # UltraSoundGate TTL portu (boş = simülasyon modu)
+TTL_TRIGGER_DURATION_S = 0.01 # TTL pulse süresi (saniye)
 AVISOFT_DOUT_PORT = ""      # Avisoft Player DOUT onay portu (boş = devre dışı)
 CHANNEL           = 0x01    # Kutu kanal numarası (1-4)
 
