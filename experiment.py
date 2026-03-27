@@ -199,7 +199,8 @@ class Experiment:
                 except Exception as e:
                     self.log.error(f"ITI press callback: {e}")
 
-        elif self.state == State.RESPONSE:
+        elif self.state == State.RESPONSE or (
+                self.state == State.DS_ON and config.LEVER_EXTEND_ON_DS):
             self.lever_pressed = True
             now = time.time()
             self.response_time_from_ds    = now - self._ds_onset_time    if self._ds_onset_time    else None
@@ -224,6 +225,11 @@ class Experiment:
 
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
+    def prepare_playlist(self, max_consecutive: int = 3) -> str:
+        """Trial sırası oluştur ve Avisoft playlist dosyasını yaz (deney başlamadan)."""
+        self.trial_sequence = self._make_trial_sequence(max_consecutive)
+        return self.generate_avisoft_playlist()
+
     def start(self, max_consecutive: int = 3, animal_id: str = ""):
         if self.state != State.IDLE:
             return
@@ -239,9 +245,10 @@ class Experiment:
             "rewarded": 0, "punished": 0,
             "omission": 0, "correct_rejection": 0,
         }
-        self.trial_sequence = self._make_trial_sequence(max_consecutive)
-        self.session_id     = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.generate_avisoft_playlist()
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if not self.trial_sequence:
+            self.trial_sequence = self._make_trial_sequence(max_consecutive)
+            self.generate_avisoft_playlist()
         self._open_log()
         self._main_thread = threading.Thread(target=self._run, daemon=True)
         self._main_thread.start()
@@ -358,8 +365,9 @@ class Experiment:
 
         # ── 3. Yanıt Penceresi ────────────────────────────────────────────────
         self.state = State.RESPONSE
-        self._lever_event.clear()
-        self.lever_pressed = False
+        # If lever was already pressed during DS_ON, keep the event/flag intact
+        if not self.lever_pressed:
+            self._lever_event.clear()
         self._emit_state()
 
         if not config.LEVER_EXTEND_ON_DS:

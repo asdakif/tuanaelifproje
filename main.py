@@ -217,8 +217,9 @@ class App(tk.Tk):
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_playlist(self.var_playlist)).grid(row=2, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Başlat'a basınca playlist otomatik üretilir.",
-                  foreground="gray").grid(row=3, column=0, columnspan=3, sticky="w", padx=8)
+        self.btn_gen_playlist = ttk.Button(av_frame, text="Playlist Oluştur",
+                                           command=self._gen_playlist, state="disabled")
+        self.btn_gen_playlist.grid(row=3, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -409,6 +410,7 @@ class App(tk.Tk):
 
         self.btn_connect.configure(state="disabled")
         self.btn_start.configure(state="normal")
+        self.btn_gen_playlist.configure(state="normal")
         if simulated or ttl_port == "":
             self.btn_ds_plus.configure(state="normal")
             self.btn_ds_minus.configure(state="normal")
@@ -503,6 +505,12 @@ class App(tk.Tk):
         self.btn_stop.configure(state="disabled")
 
     # ── Simülasyon ────────────────────────────────────────────────────────────
+
+    def _gen_playlist(self):
+        if not self.exp or not self._apply_params():
+            return
+        path = self.exp.prepare_playlist(self._max_consec)
+        messagebox.showinfo("Playlist Oluşturuldu", f"Playlist kaydedildi:\n{path}")
 
     def _sim_ds_plus(self):
         if self.ttl: self.ttl.simulate_ds_plus()
