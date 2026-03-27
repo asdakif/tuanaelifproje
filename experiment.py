@@ -46,7 +46,7 @@ def _probit(p: float) -> float:
     c = [2.515517, 0.802853, 0.010328]
     d = [1.432788, 0.189269, 0.001308]
     x = t - (c[0] + c[1]*t + c[2]*t*t) / (1 + d[0]*t + d[1]*t*t + d[2]*t*t*t)
-    return x if p < 0.5 else -x
+    return -x if p < 0.5 else x
 
 
 class Experiment:
@@ -161,16 +161,6 @@ class Experiment:
         CR rate     = DS− basılmayış / toplam DS− trial
         d'          = Z(hit) − Z(false_alarm)
         """
-        ds_plus_trials  = self.stats["rewarded"] + self.stats["punished"] + self.stats["omission"]
-        ds_minus_trials = self.stats["correct_rejection"] + self.stats["punished"] + self.stats["rewarded"]
-
-        # DS+ basışları (outcome ne olursa olsun basılmış DS+ triallar)
-        ds_plus_hits = sum(1 for _ in range(self.stats["rewarded"] + self.stats["punished"])
-                           if True)  # placeholder; gerçek sayım aşağıda
-
-        # Daha temiz hesap: direkt counter'lardan
-        # Hit = lever basılan DS+ triallar
-        # False alarm = lever basılan DS- triallar
         total_ds_plus  = sum(1 for ds in self.trial_sequence[:self.trial_num] if ds == DSType.PLUS)
         total_ds_minus = sum(1 for ds in self.trial_sequence[:self.trial_num] if ds == DSType.MINUS)
 
@@ -262,14 +252,6 @@ class Experiment:
         self._ds_event.set()
         self._dout_event.set()
         self._in_iti = False
-        self.box.lever_retract(config.LEVER_SIDE)
-        self.box.house_light_off()
-        self.box.cue_light_off(config.LEVER_SIDE)
-        self.box.shock(False)
-        self.state = State.IDLE
-        self._emit_state()
-        if self._csv_file:
-            self._csv_file.close()
         self.log.info("Deney durduruldu")
 
     # ── Ana döngü ─────────────────────────────────────────────────────────────
@@ -292,10 +274,13 @@ class Experiment:
                 )
         finally:
             self._in_iti = False
+            self.box.shock(False)
+            self.box.cue_light_off(config.LEVER_SIDE)
             self.box.house_light_off()
             self.box.lever_retract(config.LEVER_SIDE)
             if self._csv_file:
                 self._csv_file.close()
+                self._csv_file = None
             if self.state != State.IDLE:
                 self.state = State.IDLE
                 self._emit_state()
@@ -414,6 +399,8 @@ class Experiment:
                     self._stop_event.wait(config.WATER_PULSE_GAP_S)
                 self._stop_event.wait(config.LICK_WINDOW_S)
                 self._counting_licks = False
+                r, g, b = config.HOUSE_LIGHT_COLOR
+                self.box.house_light(r, g, b)
                 self.log.info(f"Trial {self.trial_num} — Lick: {self.lick_count}")
             else:
                 result = TrialResult.PUNISHED
@@ -429,6 +416,8 @@ class Experiment:
                 self.box.shock(True)
                 self._stop_event.wait(config.SHOCK_DURATION_S)
                 self.box.shock(False)
+                r, g, b = config.HOUSE_LIGHT_COLOR
+                self.box.house_light(r, g, b)
         else:
             if ds_type == DSType.PLUS:
                 result = TrialResult.OMISSION

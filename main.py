@@ -8,6 +8,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import logging
 import os
+import threading
+import time
 import webbrowser
 from datetime import datetime
 
@@ -634,14 +636,16 @@ class App(tk.Tk):
         logging.getLogger("HW").info("Lever geri alındı")
 
     def _hw_water(self):
-        import threading
         pulses = int(self.var_water_pulses.get())
-        def _run():
-            for _ in range(pulses):
-                self.box.water(config.WATER_SIDE)
-                import time; time.sleep(config.WATER_PULSE_GAP_S)
-        threading.Thread(target=_run, daemon=True).start()
-        logging.getLogger("HW").info(f"Su: {pulses} pulse")
+        gap_ms = int(config.WATER_PULSE_GAP_S * 1000)
+        log = logging.getLogger("HW")
+        log.info(f"Su: {pulses} pulse")
+        def _send_pulse(remaining):
+            if remaining <= 0:
+                return
+            self.box.water(config.WATER_SIDE)
+            self.after(gap_ms, lambda: _send_pulse(remaining - 1))
+        _send_pulse(pulses)
 
     def _hw_shock(self):
         dur = self._hw_shock_dur.get()

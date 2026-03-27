@@ -62,7 +62,8 @@ class OperantBox:
         try:
             self._serial = serial.Serial(
                 self.port, self.BAUD_RATE,
-                bytesize=8, parity='N', stopbits=1, timeout=0.1
+                bytesize=8, parity='N', stopbits=1, timeout=0.1,
+                write_timeout=1.0
             )
             self._running = True
             self._thread = threading.Thread(target=self._read_loop, daemon=True)
@@ -187,7 +188,12 @@ class OperantBox:
         if self.simulated:
             return
         if self._serial and self._serial.is_open:
-            self._serial.write(data)
+            try:
+                self._serial.write(data)
+            except serial.SerialTimeoutException:
+                self.log.error("Serial yazma timeout — donanım yanıt vermiyor")
+            except serial.SerialException as e:
+                self.log.error(f"Serial yazma hatası: {e}")
         else:
             self.log.warning("Seri port kapalı, paket gönderilemedi")
 
