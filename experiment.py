@@ -16,7 +16,6 @@ from typing import Callable, Optional
 
 import config
 from operant_box import OperantBox
-from ttl_listener import TTLListener
 
 
 class State(Enum):
@@ -51,9 +50,8 @@ def _probit(p: float) -> float:
 
 
 class Experiment:
-    def __init__(self, box: OperantBox, ttl: TTLListener):
+    def __init__(self, box: OperantBox):
         self.box = box
-        self.ttl = ttl
         self.log = logging.getLogger("Experiment")
 
         # Oturum
@@ -335,8 +333,6 @@ class Experiment:
         self.current_ds     = ds_type
         self._ds_onset_time = time.time()
         self._emit_state()
-
-        self.ttl.send_trigger(config.TTL_TRIGGER_DURATION_S)
 
         if ds_type == DSType.PLUS:
             r, g, b = config.CUE_DS_PLUS_COLOR

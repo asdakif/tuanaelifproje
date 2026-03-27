@@ -15,7 +15,6 @@ from datetime import datetime
 
 import config
 from operant_box import OperantBox
-from ttl_listener import TTLListener
 from experiment import Experiment, State, DSType, TrialResult
 
 
@@ -49,7 +48,6 @@ class App(tk.Tk):
         self._build_ui()
         self._setup_logging()
         self.box = None
-        self.ttl = None
         self.exp = None
         self._max_consec   = 3
         self._animal_queue: list[str] = []
@@ -127,20 +125,13 @@ class App(tk.Tk):
         self.var_box_port = tk.StringVar(value=config.BOX_PORT)
         ttk.Entry(conn_frame, textvariable=self.var_box_port, width=10).grid(row=0, column=1, **PAD)
 
-        ttk.Label(conn_frame, text="TTL Portu:").grid(row=1, column=0, sticky="w", **PAD)
-        self.var_ttl_port = tk.StringVar(value=config.TTL_PORT)
-        ttk.Entry(conn_frame, textvariable=self.var_ttl_port, width=10).grid(row=1, column=1, **PAD)
-
-        ttk.Label(conn_frame, text="TTL pulse (s):").grid(row=2, column=0, sticky="w", **PAD)
-        self.var_ttl_trigger_dur = tk.StringVar(value=str(config.TTL_TRIGGER_DURATION_S))
-        ttk.Entry(conn_frame, textvariable=self.var_ttl_trigger_dur, width=10).grid(row=2, column=1, **PAD)
 
         self.var_simulated = tk.BooleanVar(value=True)
         ttk.Checkbutton(conn_frame, text="Simülasyon modu",
-                        variable=self.var_simulated).grid(row=3, column=0, columnspan=2, sticky="w", **PAD)
+                        variable=self.var_simulated).grid(row=1, column=0, columnspan=2, sticky="w", **PAD)
 
         self.btn_connect = ttk.Button(conn_frame, text="Bağlan", command=self._connect)
-        self.btn_connect.grid(row=4, column=0, columnspan=2, pady=6)
+        self.btn_connect.grid(row=2, column=0, columnspan=2, pady=6)
 
         # ── Deney Parametreleri ───────────
         param_frame = ttk.LabelFrame(left, text="Deney Parametreleri")
@@ -397,19 +388,14 @@ class App(tk.Tk):
     def _connect(self):
         simulated = self.var_simulated.get()
         box_port  = self.var_box_port.get().strip()
-        ttl_port  = self.var_ttl_port.get().strip()
 
         self.box = OperantBox(box_port, config.CHANNEL, simulated=simulated)
-        self.ttl = TTLListener(ttl_port)
 
         if not self.box.connect():
             messagebox.showerror("Hata", f"Kutu bağlantısı başarısız: {box_port}")
             return
-        if not self.ttl.start():
-            messagebox.showerror("Hata", f"TTL portu başarısız: {ttl_port}")
-            return
 
-        self.exp = Experiment(self.box, self.ttl)
+        self.exp = Experiment(self.box)
         self.exp.on_state_change(self._on_state_change)
         self.exp.on_trial_end(self._on_trial_end)
         self.exp.on_lick_update(self._on_lick_update)
@@ -480,7 +466,6 @@ class App(tk.Tk):
             config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
             config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
             config.AVISOFT_DOUT_PORT         = self.var_dout_port.get().strip()
-            config.TTL_TRIGGER_DURATION_S    = float(self.var_ttl_trigger_dur.get())
             self._max_consec             = int(self.var_max_consec.get())
             config.CRITERION_HIT_RATE    = float(self.var_criterion_hit.get())
             config.CRITERION_DPRIME      = float(self.var_criterion_dprime.get())
@@ -718,8 +703,6 @@ class App(tk.Tk):
             self.exp.stop()
         if self.box:
             self.box.disconnect()
-        if self.ttl:
-            self.ttl.stop()
         self.destroy()
 
 
