@@ -39,10 +39,11 @@ CUE_DS_MINUS_COLOR = (255, 0,   0)    # DS− → Kırmızı
 HOUSE_LIGHT_COLOR  = (255, 255, 255)  # Beyaz (ITI sırasında)
 
 # ─── Avisoft Playlist ─────────────────────────────────────────────────────────
-# Deney başında Python bu dosyayı üretir, sen Avisoft'ta açarsın.
 DS_PLUS_WAV        = r"C:\sounds\ds_plus.wav"   # DS+ ses dosyası yolu
 DS_MINUS_WAV       = r"C:\sounds\ds_minus.wav"  # DS− ses dosyası yolu
 AVISOFT_PLAYLIST   = r"C:\sounds\playlist.txt"  # Avisoft'un okuyacağı playlist
+AVISOFT_EXE        = r"C:\Program Files (x86)\Avisoft Bioacoustics\RECORDER USGH\rec_usgh.exe"
+AVISOFT_LAUNCH_DELAY_S = 3.0  # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)
 
 # ─── Avisoft BNC TTL Trigger ──────────────────────────────────────────────────
 # DS sunumu başında operant kutu BNC çıkışından Avisoft'a TTL pulse gönderilir.

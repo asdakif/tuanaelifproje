@@ -217,9 +217,19 @@ class App(tk.Tk):
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_playlist(self.var_playlist)).grid(row=2, column=2, **PAD)
 
+        ttk.Label(av_frame, text="Avisoft:").grid(row=3, column=0, sticky="w", **PAD)
+        self.var_avisoft_exe = tk.StringVar(value=config.AVISOFT_EXE)
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_exe, width=26).grid(row=3, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_exe(self.var_avisoft_exe)).grid(row=3, column=2, **PAD)
+
+        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=4, column=0, sticky="w", **PAD)
+        self.var_avisoft_delay = tk.StringVar(value=str(config.AVISOFT_LAUNCH_DELAY_S))
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=4, column=1, sticky="w", **PAD)
+
         self.btn_gen_playlist = ttk.Button(av_frame, text="Playlist Oluştur",
                                            command=self._gen_playlist, state="disabled")
-        self.btn_gen_playlist.grid(row=3, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
+        self.btn_gen_playlist.grid(row=5, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -423,6 +433,14 @@ class App(tk.Tk):
 
     # ── Parametreler & Başlat ──────────────────────────────────────────────────
 
+    def _browse_exe(self, var: tk.StringVar):
+        path = filedialog.askopenfilename(
+            title="Avisoft çalıştırılabilir dosyasını seç",
+            filetypes=[("Çalıştırılabilir", "*.exe"), ("Tüm dosyalar", "*.*")]
+        )
+        if path:
+            var.set(path)
+
     def _browse_wav(self, var: tk.StringVar):
         path = filedialog.askopenfilename(
             title="WAV dosyasını seç",
@@ -462,8 +480,10 @@ class App(tk.Tk):
             config.DS_MINUS_OUTCOME      = self.var_ds_minus_outcome.get()
             config.DS_PLUS_WAV           = self.var_ds_plus_wav.get().strip()
             config.DS_MINUS_WAV          = self.var_ds_minus_wav.get().strip()
-            config.AVISOFT_PLAYLIST      = self.var_playlist.get().strip()
-            config.AVISOFT_DOUT_PORT     = self.var_dout_port.get().strip()
+            config.AVISOFT_PLAYLIST          = self.var_playlist.get().strip()
+            config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
+            config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
+            config.AVISOFT_DOUT_PORT         = self.var_dout_port.get().strip()
             self._max_consec             = int(self.var_max_consec.get())
             config.CRITERION_HIT_RATE    = float(self.var_criterion_hit.get())
             config.CRITERION_DPRIME      = float(self.var_criterion_dprime.get())

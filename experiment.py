@@ -9,6 +9,7 @@ import math
 import csv
 import os
 import logging
+import subprocess
 from enum import Enum, auto
 from datetime import datetime
 from typing import Callable, Optional
@@ -225,6 +226,21 @@ class Experiment:
 
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
+    def _launch_avisoft(self):
+        exe = config.AVISOFT_EXE
+        playlist = config.AVISOFT_PLAYLIST
+        if not exe or not os.path.isfile(exe):
+            self.log.info("Avisoft exe bulunamadı, manuel başlatılmalı.")
+            return
+        try:
+            subprocess.Popen([exe, playlist])
+            self.log.info(f"Avisoft başlatıldı: {exe}")
+            delay = config.AVISOFT_LAUNCH_DELAY_S
+            self.log.info(f"Avisoft yüklensin diye {delay}s bekleniyor…")
+            self._stop_event.wait(delay)
+        except Exception as e:
+            self.log.error(f"Avisoft başlatılamadı: {e}")
+
     def prepare_playlist(self, max_consecutive: int = 3) -> str:
         """Trial sırası oluştur ve Avisoft playlist dosyasını yaz (deney başlamadan)."""
         self.trial_sequence = self._make_trial_sequence(max_consecutive)
@@ -249,6 +265,7 @@ class Experiment:
         if not self.trial_sequence:
             self.trial_sequence = self._make_trial_sequence(max_consecutive)
             self.generate_avisoft_playlist()
+        self._launch_avisoft()
         self._open_log()
         self._main_thread = threading.Thread(target=self._run, daemon=True)
         self._main_thread.start()
