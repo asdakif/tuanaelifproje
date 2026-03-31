@@ -78,6 +78,9 @@ class Experiment:
         self.total_licks     = 0
         self._counting_licks = False
 
+        # Outcome teslimatı
+        self._outcome_delivered = False   # Bu trial için ödül/ceza verildi mi?
+
         # Avisoft DOUT onayı
         self._sound_confirmed  = False
         self._sound_sync_misses = 0   # oturum geneli onaysız trial sayısı
@@ -95,8 +98,9 @@ class Experiment:
         self.trial_sequence: list[DSType] = []
 
         # Thread kontrol
-        self._stop_event  = threading.Event()
-        self._lever_event = threading.Event()
+        self._stop_event    = threading.Event()
+        self._lever_event   = threading.Event()
+        self._outcome_lock  = threading.Lock()   # çakışan outcome teslimatını önler
         self._main_thread: Optional[threading.Thread] = None
 
         # Callbacks
@@ -114,6 +118,13 @@ class Experiment:
         # Bağlantılar
         self.box.on('lever_press', self._on_lever_press)
         self.box.on('lick',        self._on_lick)
+
+        try:
+            from avisoft_trigger import AvisoftTrigger
+            self.avisoft_trigger = AvisoftTrigger()
+        except ImportError:
+            self.avisoft_trigger = None
+            self.log.warning("avisoft_trigger yüklenemedi, yazılımsal trigger devre dışı")
 
     # ── Callback kayıt ────────────────────────────────────────────────────────
 
@@ -198,11 +209,49 @@ class Experiment:
 
         elif self.state == State.RESPONSE or (
                 self.state == State.DS_ON and config.LEVER_EXTEND_ON_DS):
-            self.lever_pressed = True
             now = time.time()
-            self.response_time_from_ds    = now - self._ds_onset_time    if self._ds_onset_time    else None
-            self.response_time_from_lever = now - self._lever_extend_time if self._lever_extend_time else None
+            if not self.lever_pressed:
+                # İlk basış: tepki süresini kaydet
+                self.lever_pressed = True
+                self.response_time_from_ds    = now - self._ds_onset_time    if self._ds_onset_time    else None
+                self.response_time_from_lever = now - self._lever_extend_time if self._lever_extend_time else None
             self._lever_event.set()
+            # Her basışa anlık ödül/ceza
+            t = threading.Thread(
+                target=self._deliver_press_outcome, args=(self.trial_num,), daemon=True)
+            t.start()
+
+    def _deliver_press_outcome(self, trial_num: int):
+        """Trial başına bir kez ödül/ceza ver. Aynı trial içinde ikinci basış atlanır."""
+        with self._outcome_lock:
+            if self._outcome_delivered or self.trial_num != trial_num:
+                return
+            ds = self.current_ds
+            if ds is None:
+                return
+            self._outcome_delivered = True
+        try:
+            outcome = config.DS_PLUS_OUTCOME if ds == DSType.PLUS else config.DS_MINUS_OUTCOME
+            if outcome == "reward":
+                self._counting_licks = True
+                for _ in range(config.WATER_PULSES):
+                    if self._stop_event.is_set():
+                        break
+                    self.box.water(config.WATER_SIDE)
+                    self._stop_event.wait(config.WATER_PULSE_GAP_S)
+                self._stop_event.wait(config.LICK_WINDOW_S)
+                self._counting_licks = False
+                self.log.info(
+                    f"Trial {self.trial_num} — Basış ödülü: su, lick: {self.lick_count}")
+            else:
+                self.box.shock_current(config.SHOCK_CURRENT_MA)
+                self.box.shock(True)
+                self._stop_event.wait(config.SHOCK_DURATION_S)
+                self.box.shock(False)
+                self.log.info(
+                    f"Trial {self.trial_num} — Basış cezası: {config.SHOCK_CURRENT_MA}mA şok")
+        except Exception as e:
+            self.log.error(f"Press outcome hatası: {e}")
 
     def _on_lick(self, side: str):
         if self._counting_licks:
@@ -229,6 +278,10 @@ class Experiment:
             delay = config.AVISOFT_LAUNCH_DELAY_S
             self.log.info(f"Avisoft yüklensin diye {delay}s bekleniyor…")
             self._stop_event.wait(delay)
+            # Pencere yapısını logla — Start butonunu doğrulamak için
+            if self.avisoft_trigger:
+                self.avisoft_trigger._find_window()
+                self.avisoft_trigger.list_children()
         except Exception as e:
             self.log.error(f"Avisoft başlatılamadı: {e}")
 
@@ -289,8 +342,9 @@ class Experiment:
         finally:
             self._in_iti = False
             self.box.shock(False)
-            self.box.cue_light_off(config.LEVER_SIDE)
             self.box.house_light_off()
+            self.box.lever_retract(config.LEVER_SIDE)
+            time.sleep(0.05)
             self.box.lever_retract(config.LEVER_SIDE)
             if self._csv_file:
                 self._csv_file.close()
@@ -309,14 +363,16 @@ class Experiment:
         self.lick_count          = 0
         self.iti_presses         = 0
         self._counting_licks     = False
+        self._outcome_delivered  = False
         self._lever_extend_time  = None
         self._lever_event.clear()
         self._emit_state()
 
         self.box.lever_retract(config.LEVER_SIDE)
+        time.sleep(0.05)
+        self.box.lever_retract(config.LEVER_SIDE)
         r, g, b = config.HOUSE_LIGHT_COLOR
         self.box.house_light(r, g, b)
-        self.box.cue_light_off(config.LEVER_SIDE)
 
         iti = random.uniform(config.ITI_MIN_S, config.ITI_MAX_S)
         self.log.info(f"Trial {self.trial_num} [{ds_type.value}] — ITI: {iti:.1f}s")
@@ -335,14 +391,15 @@ class Experiment:
         self._ds_onset_time = time.time()
         self._emit_state()
 
+        # Avisoft trigger önce gönderilir — config kaydetme gecikmesini absorbe eder
+        if self.avisoft_trigger:
+            self.avisoft_trigger.trigger()
+
         if ds_type == DSType.PLUS:
-            r, g, b = config.CUE_DS_PLUS_COLOR
             self.box.bnc_ttl(config.BNC_DS_PLUS_VOLTAGE, config.BNC_DS_PLUS_DURATION)
         else:
-            r, g, b = config.CUE_DS_MINUS_COLOR
             self.box.bnc_ttl(config.BNC_DS_MINUS_VOLTAGE, config.BNC_DS_MINUS_DURATION)
 
-        self.box.cue_light(config.LEVER_SIDE, r, g, b)
         self.box.house_light_off()
 
         # Avisoft DOUT onayı (opsiyonel)
@@ -362,15 +419,18 @@ class Experiment:
                 )
 
         if config.LEVER_EXTEND_ON_DS:
+            # Yanıt gecikmesi — lever bu süre kadar geri kalır
+            if config.RESPONSE_DELAY_S > 0:
+                if self._stop_event.wait(config.RESPONSE_DELAY_S):
+                    return
+            time.sleep(0.05)
             self._lever_extend_time = time.time()
             self.box.lever_extend(config.LEVER_SIDE)
+            time.sleep(0.05)
+            self.box.lever_extend(config.LEVER_SIDE)
             self.log.info(f"Trial {self.trial_num} — {ds_type.value} + lever uzatıldı")
-        else:
-            self.log.info(f"Trial {self.trial_num} — {ds_type.value} sunuldu")
-
-        if config.LEVER_EXTEND_ON_DS:
-            # DS süresini bekle ama lever basılınca hemen çık
-            ds_end = time.time() + config.DS_DURATION_S
+            # DS onset'ten itibaren DS_DURATION_S dolana kadar bekle (lever basılınca çık)
+            ds_end = self._ds_onset_time + config.DS_DURATION_S
             while not self._stop_event.is_set() and time.time() < ds_end:
                 remaining = ds_end - time.time()
                 if self._lever_event.wait(min(0.05, remaining)):
@@ -378,6 +438,7 @@ class Experiment:
             if self._stop_event.is_set():
                 return
         else:
+            self.log.info(f"Trial {self.trial_num} — {ds_type.value} sunuldu")
             if self._stop_event.wait(config.DS_DURATION_S):
                 return
 
@@ -388,25 +449,37 @@ class Experiment:
         self._emit_state()
 
         if not config.LEVER_EXTEND_ON_DS:
+            # Yanıt gecikmesi
+            if config.RESPONSE_DELAY_S > 0:
+                if self._stop_event.wait(config.RESPONSE_DELAY_S):
+                    return
+            time.sleep(0.05)
             self._lever_extend_time = time.time()
+            self.box.lever_extend(config.LEVER_SIDE)
+            time.sleep(0.05)
             self.box.lever_extend(config.LEVER_SIDE)
             self.log.info(f"Trial {self.trial_num} — Lever uzatıldı")
 
-        pressed = self._lever_event.wait(config.RESPONSE_WINDOW_S)
+        # Yanıt penceresini tam süre bekle — lever basılmış olsa bile dışarıda kalır
+        resp_end = time.time() + config.RESPONSE_WINDOW_S
+        while not self._stop_event.is_set() and time.time() < resp_end:
+            remaining = resp_end - time.time()
+            self._lever_event.wait(min(0.05, remaining))
+        pressed = self.lever_pressed
 
         # ── 4. Outcome ────────────────────────────────────────────────────────
         self.state = State.OUTCOME
         self._emit_state()
 
         self.box.lever_retract(config.LEVER_SIDE)
-        self.box.cue_light_off(config.LEVER_SIDE)
+        time.sleep(0.05)
+        self.box.lever_retract(config.LEVER_SIDE)
 
         rt_ds    = f"{self.response_time_from_ds:.3f}s"    if self.response_time_from_ds    else "—"
         rt_lever = f"{self.response_time_from_lever:.3f}s" if self.response_time_from_lever else "—"
 
         if pressed and self.lever_pressed:
             outcome = config.DS_PLUS_OUTCOME if ds_type == DSType.PLUS else config.DS_MINUS_OUTCOME
-
             if outcome == "reward":
                 result = TrialResult.REWARDED
                 self.stats["rewarded"] += 1
@@ -416,17 +489,6 @@ class Experiment:
                     f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] "
                     f"RT(DS)={rt_ds} RT(lever)={rt_lever}"
                 )
-                self._counting_licks = True
-                for _ in range(config.WATER_PULSES):
-                    if self._stop_event.is_set():
-                        break
-                    self.box.water(config.WATER_SIDE)
-                    self._stop_event.wait(config.WATER_PULSE_GAP_S)
-                self._stop_event.wait(config.LICK_WINDOW_S)
-                self._counting_licks = False
-                r, g, b = config.HOUSE_LIGHT_COLOR
-                self.box.house_light(r, g, b)
-                self.log.info(f"Trial {self.trial_num} — Lick: {self.lick_count}")
             else:
                 result = TrialResult.PUNISHED
                 self.stats["punished"] += 1
@@ -437,12 +499,6 @@ class Experiment:
                     f"RT(DS)={rt_ds} RT(lever)={rt_lever} "
                     f"{config.SHOCK_CURRENT_MA}mA"
                 )
-                self.box.shock_current(config.SHOCK_CURRENT_MA)
-                self.box.shock(True)
-                self._stop_event.wait(config.SHOCK_DURATION_S)
-                self.box.shock(False)
-                r, g, b = config.HOUSE_LIGHT_COLOR
-                self.box.house_light(r, g, b)
         else:
             if ds_type == DSType.PLUS:
                 result = TrialResult.OMISSION
