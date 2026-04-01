@@ -78,9 +78,6 @@ class Experiment:
         self.total_licks     = 0
         self._counting_licks = False
 
-        # Outcome teslimatı
-        self._outcome_delivered = False   # Bu trial için ödül/ceza verildi mi?
-
         # Avisoft DOUT onayı
         self._sound_confirmed  = False
         self._sound_sync_misses = 0   # oturum geneli onaysız trial sayısı
@@ -100,7 +97,6 @@ class Experiment:
         # Thread kontrol
         self._stop_event    = threading.Event()
         self._lever_event   = threading.Event()
-        self._outcome_lock  = threading.Lock()   # çakışan outcome teslimatını önler
         self._main_thread: Optional[threading.Thread] = None
 
         # Callbacks
@@ -217,19 +213,13 @@ class Experiment:
                 self.response_time_from_lever = now - self._lever_extend_time if self._lever_extend_time else None
             self._lever_event.set()
             # Her basışa anlık ödül/ceza
-            t = threading.Thread(
-                target=self._deliver_press_outcome, args=(self.trial_num,), daemon=True)
-            t.start()
+            threading.Thread(target=self._deliver_press_outcome, daemon=True).start()
 
-    def _deliver_press_outcome(self, trial_num: int):
-        """Trial başına bir kez ödül/ceza ver. Aynı trial içinde ikinci basış atlanır."""
-        with self._outcome_lock:
-            if self._outcome_delivered or self.trial_num != trial_num:
-                return
-            ds = self.current_ds
-            if ds is None:
-                return
-            self._outcome_delivered = True
+    def _deliver_press_outcome(self):
+        """Her lever basışına ödül/ceza ver."""
+        ds = self.current_ds
+        if ds is None:
+            return
         try:
             outcome = config.DS_PLUS_OUTCOME if ds == DSType.PLUS else config.DS_MINUS_OUTCOME
             if outcome == "reward":
@@ -363,7 +353,6 @@ class Experiment:
         self.lick_count          = 0
         self.iti_presses         = 0
         self._counting_licks     = False
-        self._outcome_delivered  = False
         self._lever_extend_time  = None
         self._lever_event.clear()
         self._emit_state()
