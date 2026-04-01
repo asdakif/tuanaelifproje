@@ -126,7 +126,7 @@ class App(tk.Tk):
         ttk.Entry(conn_frame, textvariable=self.var_box_port, width=10).grid(row=0, column=1, **PAD)
 
 
-        self.var_simulated = tk.BooleanVar(value=True)
+        self.var_simulated = tk.BooleanVar(value=False)
         ttk.Checkbutton(conn_frame, text="Simülasyon modu",
                         variable=self.var_simulated).grid(row=1, column=0, columnspan=2, sticky="w", **PAD)
 
@@ -246,19 +246,37 @@ class App(tk.Tk):
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_playlist(self.var_playlist)).grid(row=6, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Avisoft:").grid(row=7, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Playback exe:").grid(row=7, column=0, sticky="w", **PAD)
         self.var_avisoft_exe = tk.StringVar(value=config.AVISOFT_EXE)
         ttk.Entry(av_frame, textvariable=self.var_avisoft_exe, width=26).grid(row=7, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_exe(self.var_avisoft_exe)).grid(row=7, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=8, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Playback config:").grid(row=8, column=0, sticky="w", **PAD)
+        self.var_playback_config = tk.StringVar(value=config.AVISOFT_PLAYBACK_CONFIG)
+        ttk.Entry(av_frame, textvariable=self.var_playback_config, width=26).grid(row=8, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_ini(self.var_playback_config)).grid(row=8, column=2, **PAD)
+
+        ttk.Label(av_frame, text="Record exe:").grid(row=9, column=0, sticky="w", **PAD)
+        self.var_record_exe = tk.StringVar(value=config.AVISOFT_RECORD_EXE)
+        ttk.Entry(av_frame, textvariable=self.var_record_exe, width=26).grid(row=9, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_exe(self.var_record_exe)).grid(row=9, column=2, **PAD)
+
+        ttk.Label(av_frame, text="Record config:").grid(row=10, column=0, sticky="w", **PAD)
+        self.var_record_config = tk.StringVar(value=config.AVISOFT_RECORD_CONFIG)
+        ttk.Entry(av_frame, textvariable=self.var_record_config, width=26).grid(row=10, column=1, **PAD)
+        ttk.Button(av_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_ini(self.var_record_config)).grid(row=10, column=2, **PAD)
+
+        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=11, column=0, sticky="w", **PAD)
         self.var_avisoft_delay = tk.StringVar(value=str(config.AVISOFT_LAUNCH_DELAY_S))
-        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=8, column=1, sticky="w", **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=11, column=1, sticky="w", **PAD)
 
         self.btn_gen_playlist = ttk.Button(av_frame, text="Playlist Oluştur",
                                            command=self._gen_playlist, state="disabled")
-        self.btn_gen_playlist.grid(row=9, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
+        self.btn_gen_playlist.grid(row=12, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -466,6 +484,14 @@ class App(tk.Tk):
         if path:
             var.set(path)
 
+    def _browse_ini(self, var: tk.StringVar):
+        path = filedialog.askopenfilename(
+            title="Avisoft config dosyasını seç",
+            filetypes=[("Config dosyası", "*.ini"), ("Tüm dosyalar", "*.*")]
+        )
+        if path:
+            var.set(path)
+
     def _browse_wav(self, var: tk.StringVar):
         path = filedialog.askopenfilename(
             title="WAV dosyasını seç",
@@ -525,6 +551,9 @@ class App(tk.Tk):
                 config.DS_MINUS_WAV_LIST = list(self.ds_minus_wav_list)
             config.AVISOFT_PLAYLIST          = self.var_playlist.get().strip()
             config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
+            config.AVISOFT_PLAYBACK_CONFIG   = self.var_playback_config.get().strip()
+            config.AVISOFT_RECORD_EXE        = self.var_record_exe.get().strip()
+            config.AVISOFT_RECORD_CONFIG     = self.var_record_config.get().strip()
             config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
             config.AVISOFT_DOUT_PORT         = self.var_dout_port.get().strip()
             self._max_consec             = int(self.var_max_consec.get())

@@ -258,24 +258,41 @@ class Experiment:
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
     def _launch_avisoft(self):
-        exe = config.AVISOFT_EXE
-        playlist = config.AVISOFT_PLAYLIST
-        if not exe or not os.path.isfile(exe):
-            self.log.info("Avisoft exe bulunamadı, manuel başlatılmalı.")
-            return
-        try:
-            subprocess.Popen([exe, playlist])
-            self.log.info(f"Avisoft başlatıldı: {exe}")
-            delay = config.AVISOFT_LAUNCH_DELAY_S
-            self.log.info(f"Avisoft yüklensin diye {delay}s bekleniyor…")
-            self._stop_event.wait(delay)
-            # Pencere yapısını logla — Start butonunu doğrulamak için
-            if self.avisoft_trigger:
-                self.avisoft_trigger._find_window()
-                self.avisoft_trigger.list_children()
-                self.avisoft_trigger.start_recording()
-        except Exception as e:
-            self.log.error(f"Avisoft başlatılamadı: {e}")
+        # ── Playback ──────────────────────────────────────────────────────────
+        pb_exe = config.AVISOFT_EXE
+        pb_cfg = config.AVISOFT_PLAYBACK_CONFIG
+        if pb_exe and os.path.isfile(pb_exe):
+            try:
+                args = [pb_exe, pb_cfg] if pb_cfg and os.path.isfile(pb_cfg) else [pb_exe]
+                subprocess.Popen(args)
+                self.log.info(f"Avisoft Playback başlatıldı: {pb_exe}")
+                if pb_cfg and not os.path.isfile(pb_cfg):
+                    self.log.warning(f"Playback config bulunamadı: {pb_cfg}")
+            except Exception as e:
+                self.log.error(f"Avisoft Playback başlatılamadı: {e}")
+        else:
+            self.log.info("Avisoft Playback exe bulunamadı, manuel başlatılmalı.")
+
+        # ── Recorder ──────────────────────────────────────────────────────────
+        rec_exe = config.AVISOFT_RECORD_EXE
+        rec_cfg = config.AVISOFT_RECORD_CONFIG
+        if rec_exe and os.path.isfile(rec_exe):
+            try:
+                args = [rec_exe, rec_cfg] if rec_cfg and os.path.isfile(rec_cfg) else [rec_exe]
+                subprocess.Popen(args)
+                self.log.info(f"Avisoft Recorder başlatıldı: {rec_exe}")
+                if rec_cfg and not os.path.isfile(rec_cfg):
+                    self.log.warning(f"Record config bulunamadı: {rec_cfg}")
+            except Exception as e:
+                self.log.error(f"Avisoft Recorder başlatılamadı: {e}")
+
+        # ── Yüklenmesini bekle + pencere bul ──────────────────────────────────
+        delay = config.AVISOFT_LAUNCH_DELAY_S
+        self.log.info(f"Avisoft yüklensin diye {delay}s bekleniyor…")
+        self._stop_event.wait(delay)
+        if self.avisoft_trigger:
+            self.avisoft_trigger._find_window()
+            self.avisoft_trigger.list_children()
 
     def prepare_playlist(self, max_consecutive: int = 3) -> str:
         """Trial sırası oluştur ve Avisoft playlist dosyasını yaz (deney başlamadan)."""

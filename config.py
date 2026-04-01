@@ -1,5 +1,5 @@
 # ─── Donanım Ayarları ──────────────────────────────────────────────────────────
-BOX_PORT          = "COM3"  # Operant box seri port
+BOX_PORT          = "COM4"  # Operant box seri port
 TTL_PORT              = ""    # UltraSoundGate TTL portu (boş = simülasyon modu)
 TTL_TRIGGER_DURATION_S = 0.01 # TTL pulse süresi (saniye)
 AVISOFT_DOUT_PORT = ""      # Avisoft Player DOUT onay portu (boş = devre dışı)
@@ -46,8 +46,11 @@ DS_MINUS_WAV       = r"C:\sounds\ds_minus.wav"  # DS− ses dosyası yolu
 DS_PLUS_WAV_LIST   = []  # DS+ için birden fazla wav dosyası (boşsa DS_PLUS_WAV kullanılır)
 DS_MINUS_WAV_LIST  = []  # DS− için birden fazla wav dosyası (boşsa DS_MINUS_WAV kullanılır)
 AVISOFT_PLAYLIST   = r"C:\sounds\playlist.txt"  # Avisoft'un okuyacağı playlist
-AVISOFT_EXE        = r"C:\Program Files (x86)\Avisoft Bioacoustics\RECORDER USGH\rec_usgh.exe"
-AVISOFT_LAUNCH_DELAY_S = 3.0  # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)
+AVISOFT_EXE             = r"C:\Program Files (x86)\Avisoft Bioacoustics\RECORDER USGH\rec_usgh.exe"
+AVISOFT_PLAYBACK_CONFIG = r"C:\Users\behne\Desktop\OC-USV\playback config\playback config.ini"
+AVISOFT_RECORD_EXE      = r""   # Recorder exe yolu (boşsa kayıt başlatılmaz)
+AVISOFT_RECORD_CONFIG   = r""   # Recorder config/ini yolu
+AVISOFT_LAUNCH_DELAY_S  = 3.0   # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)
 
 # ─── Avisoft BNC TTL Trigger ──────────────────────────────────────────────────
 # DS sunumu başında operant kutu BNC çıkışından Avisoft'a TTL pulse gönderilir.
