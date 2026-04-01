@@ -273,6 +273,7 @@ class Experiment:
             if self.avisoft_trigger:
                 self.avisoft_trigger._find_window()
                 self.avisoft_trigger.list_children()
+                self.avisoft_trigger.start_recording()
         except Exception as e:
             self.log.error(f"Avisoft başlatılamadı: {e}")
 

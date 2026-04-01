@@ -1,9 +1,49 @@
+import ctypes
+import ctypes.wintypes
 import logging
+import time
 
 try:
     import win32gui
+    import win32con
+    import win32api
+    import win32process
 except ImportError:
     win32gui = None
+
+
+# ── SendInput yapıları (kayıt başlatmak için) ──────────────────────────────
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk",         ctypes.wintypes.WORD),
+        ("wScan",       ctypes.wintypes.WORD),
+        ("dwFlags",     ctypes.wintypes.DWORD),
+        ("time",        ctypes.wintypes.DWORD),
+        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+    ]
+
+class _INPUT_UNION(ctypes.Union):
+    _fields_ = [("ki", _KEYBDINPUT)]
+
+class _INPUT(ctypes.Structure):
+    _fields_ = [("type", ctypes.wintypes.DWORD), ("_input", _INPUT_UNION)]
+
+_KEYEVENTF_KEYUP = 0x0002
+
+
+def _send_key(vk: int, key_up: bool = False):
+    scan  = ctypes.windll.user32.MapVirtualKeyW(vk, 0)
+    flags = _KEYEVENTF_KEYUP if key_up else 0
+    inp = _INPUT(
+        type=1,
+        _input=_INPUT_UNION(ki=_KEYBDINPUT(
+            wVk=vk, wScan=scan, dwFlags=flags, time=0,
+            dwExtraInfo=ctypes.cast(ctypes.pointer(ctypes.c_ulong(0)),
+                                    ctypes.POINTER(ctypes.c_ulong))
+        ))
+    )
+    ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
 
 class AvisoftTrigger:
@@ -124,6 +164,83 @@ class AvisoftTrigger:
                 f"title=[{win32gui.GetWindowText(found[0])}]"
             )
         return found[0]
+
+    # ── Kayıt başlatma ─────────────────────────────────────────────────────
+
+    def start_recording(self) -> bool:
+        """
+        Avisoft Recorder ana penceresine Shift+Space göndererek kaydı başlatır.
+        Playlist trigger'ı etkilemez.
+        """
+        if win32gui is None:
+            self.log.error("pywin32 yüklü değil")
+            return False
+
+        if not self._hwnd or not win32gui.IsWindow(self._hwnd):
+            if not self._find_window():
+                return False
+            if not self._hwnd:
+                self.log.error("Avisoft Recorder ana penceresi bulunamadı")
+                return False
+
+        target = self._hwnd
+        user32 = ctypes.windll.user32
+        try:
+            current_tid  = win32api.GetCurrentThreadId()
+            target_tid, _= win32process.GetWindowThreadProcessId(target)
+            prev_hwnd    = win32gui.GetForegroundWindow()
+
+            attached = False
+            if current_tid != target_tid:
+                try:
+                    win32process.AttachThreadInput(current_tid, target_tid, True)
+                    attached = True
+                except Exception:
+                    pass
+
+            try:
+                user32.ShowWindow(target, 9)       # SW_RESTORE
+                user32.BringWindowToTop(target)
+                user32.SetForegroundWindow(target)
+                user32.SetActiveWindow(target)
+                time.sleep(0.15)
+
+                _send_key(win32con.VK_SHIFT)
+                _send_key(win32con.VK_SPACE)
+                _send_key(win32con.VK_SPACE, key_up=True)
+                _send_key(win32con.VK_SHIFT, key_up=True)
+                time.sleep(0.05)
+
+                # PostMessage ile de gönder (bazı Avisoft sürümlerinde daha güvenilir)
+                def _lp(scan, key_up=False):
+                    lp = 1 | (scan << 16)
+                    if key_up:
+                        lp |= (1 << 30) | (1 << 31)
+                    return lp
+                ss = win32api.MapVirtualKey(win32con.VK_SHIFT, 0)
+                sp = win32api.MapVirtualKey(win32con.VK_SPACE, 0)
+                win32gui.PostMessage(target, win32con.WM_KEYDOWN, win32con.VK_SHIFT, _lp(ss))
+                win32gui.PostMessage(target, win32con.WM_KEYDOWN, win32con.VK_SPACE, _lp(sp))
+                win32gui.PostMessage(target, win32con.WM_CHAR,    0x20,              _lp(sp))
+                win32gui.PostMessage(target, win32con.WM_KEYUP,   win32con.VK_SPACE, _lp(sp, True))
+                win32gui.PostMessage(target, win32con.WM_KEYUP,   win32con.VK_SHIFT, _lp(ss, True))
+
+            finally:
+                if attached:
+                    win32process.AttachThreadInput(current_tid, target_tid, False)
+                time.sleep(0.05)
+                try:
+                    if prev_hwnd and win32gui.IsWindow(prev_hwnd):
+                        user32.SetForegroundWindow(prev_hwnd)
+                except Exception:
+                    pass
+
+            self.log.info("Avisoft kayıt başlatıldı (Shift+Space → Recorder)")
+            return True
+
+        except Exception as e:
+            self.log.error(f"Avisoft kayıt başlatma hatası: {e}")
+            return False
 
     # ── Trigger ────────────────────────────────────────────────────────────
 
