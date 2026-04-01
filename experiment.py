@@ -303,7 +303,8 @@ class Experiment:
         self.trial_sequence = self._make_trial_sequence(max_consecutive)
         return self.generate_avisoft_playlist()
 
-    def start(self, max_consecutive: int = 3, animal_id: str = ""):
+    def start(self, max_consecutive: int = 3, animal_id: str = "",
+              use_existing_playlist: bool = False):
         if self.state != State.IDLE:
             return
         self._stop_event.clear()
@@ -319,9 +320,11 @@ class Experiment:
             "omission": 0, "correct_rejection": 0,
         }
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        if not self.trial_sequence:
+        if not use_existing_playlist:
             self.trial_sequence = self._make_trial_sequence(max_consecutive)
             self.generate_avisoft_playlist()
+        else:
+            self._load_trial_sequence_from_playlist()
         self._launch_avisoft()
         self._open_log()
         self._main_thread = threading.Thread(target=self._run, daemon=True)
@@ -532,6 +535,32 @@ class Experiment:
         self._log_trial(result, ds_type)
 
     # ── Trial sırası ──────────────────────────────────────────────────────────
+
+    def _load_trial_sequence_from_playlist(self):
+        """Mevcut playlist dosyasindan trial sirasini oku"""
+        playlist_path = config.AVISOFT_PLAYLIST
+        if not os.path.exists(playlist_path):
+            self.log.error(f"Playlist bulunamadi: {playlist_path}")
+            return
+        with open(playlist_path, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f if line.strip()]
+
+        self.trial_sequence = []
+        self.trial_wav_files = lines[:]
+        for line in lines:
+            basename = os.path.basename(line).lower()
+            is_plus = False
+            if config.DS_PLUS_WAV and os.path.basename(config.DS_PLUS_WAV).lower() == basename:
+                is_plus = True
+            elif config.DS_PLUS_WAV_LIST:
+                for wav in config.DS_PLUS_WAV_LIST:
+                    if os.path.basename(wav).lower() == basename:
+                        is_plus = True
+                        break
+            self.trial_sequence.append(DSType.PLUS if is_plus else DSType.MINUS)
+
+        config.NUM_TRIALS = len(self.trial_sequence)
+        self.log.info(f"Mevcut playlist'ten yuklendi: {len(self.trial_sequence)} trial")
 
     def _make_trial_sequence(self, max_consecutive: int = 3) -> list[DSType]:
         n_plus  = round(config.NUM_TRIALS * config.DS_PLUS_RATIO)

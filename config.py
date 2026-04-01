@@ -48,8 +48,8 @@ DS_MINUS_WAV_LIST  = []  # DS− için birden fazla wav dosyası (boşsa DS_MINU
 AVISOFT_PLAYLIST   = r"C:\sounds\playlist.txt"  # Avisoft'un okuyacağı playlist
 AVISOFT_EXE             = r"C:\Program Files (x86)\Avisoft Bioacoustics\RECORDER USGH\rec_usgh.exe"
 AVISOFT_PLAYBACK_CONFIG = r"C:\Users\behne\Desktop\OC-USV\playback config\playback config.ini"
-AVISOFT_RECORD_EXE      = r""   # Recorder exe yolu (boşsa kayıt başlatılmaz)
-AVISOFT_RECORD_CONFIG   = r""   # Recorder config/ini yolu
+AVISOFT_RECORD_EXE      = ""   # Bos birakilirsa Playback exe ile ayni kullanilir
+AVISOFT_RECORD_CONFIG   = ""   # Record config dosyasi
 AVISOFT_LAUNCH_DELAY_S  = 3.0   # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)
 
 # ─── Avisoft BNC TTL Trigger ──────────────────────────────────────────────────

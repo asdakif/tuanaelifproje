@@ -274,9 +274,14 @@ class App(tk.Tk):
         self.var_avisoft_delay = tk.StringVar(value=str(config.AVISOFT_LAUNCH_DELAY_S))
         ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=11, column=1, sticky="w", **PAD)
 
+        self.var_use_existing_playlist = tk.BooleanVar(value=False)
+        ttk.Checkbutton(av_frame, text="Mevcut playlist kullan (yeniden oluşturma)",
+                        variable=self.var_use_existing_playlist).grid(
+                            row=12, column=0, columnspan=3, sticky="w", **PAD)
+
         self.btn_gen_playlist = ttk.Button(av_frame, text="Playlist Oluştur",
                                            command=self._gen_playlist, state="disabled")
-        self.btn_gen_playlist.grid(row=12, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
+        self.btn_gen_playlist.grid(row=13, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -552,6 +557,8 @@ class App(tk.Tk):
             config.AVISOFT_PLAYLIST          = self.var_playlist.get().strip()
             config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
             config.AVISOFT_PLAYBACK_CONFIG   = self.var_playback_config.get().strip()
+            if not self.var_record_exe.get().strip():
+                self.var_record_exe.set(self.var_avisoft_exe.get())
             config.AVISOFT_RECORD_EXE        = self.var_record_exe.get().strip()
             config.AVISOFT_RECORD_CONFIG     = self.var_record_config.get().strip()
             config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
@@ -588,7 +595,8 @@ class App(tk.Tk):
         logging.getLogger("App").info(
             f"Hayvan {self._animal_index + 1}/{total}: {animal_id} başlıyor"
         )
-        self.exp.start(self._max_consec, animal_id=animal_id)
+        self.exp.start(self._max_consec, animal_id=animal_id,
+                       use_existing_playlist=self.var_use_existing_playlist.get())
 
     def _stop(self):
         if self.exp:
