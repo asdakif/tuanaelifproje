@@ -175,6 +175,10 @@ class App(tk.Tk):
         ttk.Checkbutton(lev_frame, text="DS başlayınca lever çıksın",
                         variable=self.var_lever_on_ds).grid(row=1, column=0, columnspan=2, sticky="w", **PAD)
 
+        ttk.Label(lev_frame, text="Yanıt gecikmesi (s):").grid(row=2, column=0, sticky="w", **PAD)
+        self.var_resp_delay = tk.StringVar(value=str(config.RESPONSE_DELAY_S))
+        ttk.Entry(lev_frame, textvariable=self.var_resp_delay, width=8).grid(row=2, column=1, **PAD)
+
         # ── Outcome Ayarları ──────────────
         out_frame = ttk.LabelFrame(left, text="Outcome Ayarları")
         out_frame.pack(fill="x", pady=4)
@@ -200,31 +204,61 @@ class App(tk.Tk):
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_wav(self.var_ds_plus_wav)).grid(row=0, column=2, **PAD)
 
-        ttk.Label(av_frame, text="DS− .wav:").grid(row=1, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="DS+ .wav dosyaları:").grid(row=1, column=0, sticky="w", **PAD)
+        self.ds_plus_wav_list: list[str] = list(config.DS_PLUS_WAV_LIST)
+        self._lb_ds_plus = tk.Listbox(av_frame, height=4, width=30)
+        self._lb_ds_plus.grid(row=2, column=0, columnspan=2, sticky="ew", **PAD)
+        for p in self.ds_plus_wav_list:
+            self._lb_ds_plus.insert(tk.END, p)
+        _btn_plus_frame = ttk.Frame(av_frame)
+        _btn_plus_frame.grid(row=2, column=2, sticky="n", **PAD)
+        ttk.Button(_btn_plus_frame, text="Ekle…",
+                   command=lambda: self._add_wavs(self._lb_ds_plus, self.ds_plus_wav_list)
+                   ).pack(fill="x")
+        ttk.Button(_btn_plus_frame, text="Temizle",
+                   command=lambda: self._clear_wavs(self._lb_ds_plus, self.ds_plus_wav_list)
+                   ).pack(fill="x")
+
+        ttk.Label(av_frame, text="DS− .wav:").grid(row=3, column=0, sticky="w", **PAD)
         self.var_ds_minus_wav = tk.StringVar(value=config.DS_MINUS_WAV)
-        ttk.Entry(av_frame, textvariable=self.var_ds_minus_wav, width=26).grid(row=1, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_ds_minus_wav, width=26).grid(row=3, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_wav(self.var_ds_minus_wav)).grid(row=1, column=2, **PAD)
+                   command=lambda: self._browse_wav(self.var_ds_minus_wav)).grid(row=3, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Playlist:").grid(row=2, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="DS− .wav dosyaları:").grid(row=4, column=0, sticky="w", **PAD)
+        self.ds_minus_wav_list: list[str] = list(config.DS_MINUS_WAV_LIST)
+        self._lb_ds_minus = tk.Listbox(av_frame, height=4, width=30)
+        self._lb_ds_minus.grid(row=5, column=0, columnspan=2, sticky="ew", **PAD)
+        for p in self.ds_minus_wav_list:
+            self._lb_ds_minus.insert(tk.END, p)
+        _btn_minus_frame = ttk.Frame(av_frame)
+        _btn_minus_frame.grid(row=5, column=2, sticky="n", **PAD)
+        ttk.Button(_btn_minus_frame, text="Ekle…",
+                   command=lambda: self._add_wavs(self._lb_ds_minus, self.ds_minus_wav_list)
+                   ).pack(fill="x")
+        ttk.Button(_btn_minus_frame, text="Temizle",
+                   command=lambda: self._clear_wavs(self._lb_ds_minus, self.ds_minus_wav_list)
+                   ).pack(fill="x")
+
+        ttk.Label(av_frame, text="Playlist:").grid(row=6, column=0, sticky="w", **PAD)
         self.var_playlist = tk.StringVar(value=config.AVISOFT_PLAYLIST)
-        ttk.Entry(av_frame, textvariable=self.var_playlist, width=26).grid(row=2, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_playlist, width=26).grid(row=6, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=2, column=2, **PAD)
+                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=6, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Avisoft:").grid(row=3, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Avisoft:").grid(row=7, column=0, sticky="w", **PAD)
         self.var_avisoft_exe = tk.StringVar(value=config.AVISOFT_EXE)
-        ttk.Entry(av_frame, textvariable=self.var_avisoft_exe, width=26).grid(row=3, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_exe, width=26).grid(row=7, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_exe(self.var_avisoft_exe)).grid(row=3, column=2, **PAD)
+                   command=lambda: self._browse_exe(self.var_avisoft_exe)).grid(row=7, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=4, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=8, column=0, sticky="w", **PAD)
         self.var_avisoft_delay = tk.StringVar(value=str(config.AVISOFT_LAUNCH_DELAY_S))
-        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=4, column=1, sticky="w", **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=8, column=1, sticky="w", **PAD)
 
         self.btn_gen_playlist = ttk.Button(av_frame, text="Playlist Oluştur",
                                            command=self._gen_playlist, state="disabled")
-        self.btn_gen_playlist.grid(row=5, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
+        self.btn_gen_playlist.grid(row=9, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -272,21 +306,30 @@ class App(tk.Tk):
         self._hw_shock_dur = tk.DoubleVar(value=config.SHOCK_DURATION_S)
         ttk.Spinbox(r2b, from_=0.1, to=10.0, increment=0.1, textvariable=self._hw_shock_dur, width=6).pack(side="left")
 
-        r3 = ttk.Frame(hw_frame); r3.pack(fill="x", padx=8, pady=2)
-        self.btn_hw_cue_on  = ttk.Button(r3, text="Cue DS+ (Yeşil)", command=self._hw_cue_on,  state="disabled")
-        self.btn_hw_cue_off = ttk.Button(r3, text="Cue Söndür",      command=self._hw_cue_off, state="disabled")
-        self.btn_hw_cue_on.pack(side="left", expand=True, fill="x", padx=2)
-        self.btn_hw_cue_off.pack(side="left", expand=True, fill="x", padx=2)
+        r3b = ttk.Frame(hw_frame); r3b.pack(fill="x", padx=8, pady=2)
+        self.btn_hw_house_on  = ttk.Button(r3b, text="House Light Yak",    command=self._hw_house_on,  state="disabled")
+        self.btn_hw_house_off = ttk.Button(r3b, text="House Light Söndür", command=self._hw_house_off, state="disabled")
+        self.btn_hw_house_on.pack(side="left", expand=True, fill="x", padx=2)
+        self.btn_hw_house_off.pack(side="left", expand=True, fill="x", padx=2)
 
         r4 = ttk.Frame(hw_frame); r4.pack(fill="x", padx=8, pady=2)
         self.btn_hw_bnc = ttk.Button(r4, text="BNC TTL Gönder (100ms)", command=self._hw_bnc, state="disabled")
         self.btn_hw_bnc.pack(fill="x", padx=2)
 
+        r5 = ttk.Frame(hw_frame); r5.pack(fill="x", padx=8, pady=2)
+        self.btn_hw_av_test = ttk.Button(r5, text="Avisoft Trigger Test",
+                                         command=self._hw_avisoft_trigger, state="disabled")
+        self.btn_hw_av_list = ttk.Button(r5, text="Pencere Listesi (Log)",
+                                         command=self._hw_avisoft_list_windows, state="disabled")
+        self.btn_hw_av_test.pack(side="left", expand=True, fill="x", padx=2)
+        self.btn_hw_av_list.pack(side="left", expand=True, fill="x", padx=2)
+
         self._hw_buttons = [
             self.btn_hw_lever_ext, self.btn_hw_lever_ret,
             self.btn_hw_water, self.btn_hw_shock,
-            self.btn_hw_cue_on, self.btn_hw_cue_off,
+            self.btn_hw_house_on, self.btn_hw_house_off,
             self.btn_hw_bnc,
+            self.btn_hw_av_test, self.btn_hw_av_list,
         ]
 
         # ════════════════════════════════
@@ -431,6 +474,19 @@ class App(tk.Tk):
         if path:
             var.set(path)
 
+    def _add_wavs(self, lb: tk.Listbox, lst: list):
+        paths = filedialog.askopenfilenames(
+            title="WAV dosyalarını seç",
+            filetypes=[("WAV dosyaları", "*.wav"), ("Tüm dosyalar", "*.*")]
+        )
+        for p in paths:
+            lst.append(p)
+            lb.insert(tk.END, p)
+
+    def _clear_wavs(self, lb: tk.Listbox, lst: list):
+        lst.clear()
+        lb.delete(0, tk.END)
+
     def _browse_playlist(self, var: tk.StringVar):
         path = filedialog.asksaveasfilename(
             title="Playlist kayıt yeri",
@@ -458,10 +514,15 @@ class App(tk.Tk):
             config.BNC_DS_MINUS_VOLTAGE  = float(self.var_ttl_voltage.get())
             config.LEVER_SIDE            = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
             config.LEVER_EXTEND_ON_DS    = self.var_lever_on_ds.get()
+            config.RESPONSE_DELAY_S      = float(self.var_resp_delay.get())
             config.DS_PLUS_OUTCOME       = self.var_ds_plus_outcome.get()
             config.DS_MINUS_OUTCOME      = self.var_ds_minus_outcome.get()
             config.DS_PLUS_WAV           = self.var_ds_plus_wav.get().strip()
             config.DS_MINUS_WAV          = self.var_ds_minus_wav.get().strip()
+            if self.ds_plus_wav_list:
+                config.DS_PLUS_WAV_LIST  = list(self.ds_plus_wav_list)
+            if self.ds_minus_wav_list:
+                config.DS_MINUS_WAV_LIST = list(self.ds_minus_wav_list)
             config.AVISOFT_PLAYLIST          = self.var_playlist.get().strip()
             config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
             config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
@@ -659,16 +720,14 @@ class App(tk.Tk):
         logging.getLogger("HW").info(f"Şok: {dur} sn / {ma} mA")
         self.after(int(dur * 1000), lambda: self.box.shock(False))
 
-    def _hw_cue_on(self):
-        side = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
-        r, g, b = config.CUE_DS_PLUS_COLOR
-        self.box.cue_light(side, r, g, b)
-        logging.getLogger("HW").info("Cue light DS+ (yeşil) yakıldı")
+    def _hw_house_on(self):
+        r, g, b = config.HOUSE_LIGHT_COLOR
+        self.box.house_light(r, g, b)
+        logging.getLogger("HW").info("House light yakıldı")
 
-    def _hw_cue_off(self):
-        side = 0x01 if "Sol" in self.var_lever_side.get() else 0x02
-        self.box.cue_light_off(side)
-        logging.getLogger("HW").info("Cue light söndürüldü")
+    def _hw_house_off(self):
+        self.box.house_light_off()
+        logging.getLogger("HW").info("House light söndürüldü")
 
     def _hw_bnc(self):
         voltage = float(self.var_ttl_voltage.get())
@@ -676,6 +735,29 @@ class App(tk.Tk):
         self.box.bnc_ttl(voltage, duration)
         logging.getLogger("HW").info(
             f"BNC TTL gönderildi: {voltage}V / {duration}ms")
+
+    def _hw_avisoft_trigger(self):
+        if self.exp and self.exp.avisoft_trigger:
+            ok = self.exp.avisoft_trigger.trigger()
+            if not ok:
+                logging.getLogger("HW").error(
+                    "Avisoft trigger başarısız — 'Pencere Listesi' butonuna basarak "
+                    "doğru pencere adını log'dan kontrol edin.")
+        else:
+            logging.getLogger("HW").warning(
+                "Avisoft trigger yüklü değil (pywin32 eksik veya bağlantı kurulmamış)")
+
+    def _hw_avisoft_list_windows(self):
+        t = self.exp.avisoft_trigger if self.exp else None
+        if t is None:
+            try:
+                from avisoft_trigger import AvisoftTrigger
+                t = AvisoftTrigger()
+            except Exception as e:
+                logging.getLogger("HW").error(f"AvisoftTrigger yüklenemedi: {e}")
+                return
+        t.list_windows()
+        t.list_children()
 
     # ── Rapor ─────────────────────────────────────────────────────────────────
 

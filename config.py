@@ -33,6 +33,7 @@ LICK_WINDOW_S     = 10.0   # Ödülden sonra lick sayma süresi (saniye)
 # ─── Lever Ayarları ────────────────────────────────────────────────────────────
 LEVER_SIDE = 0x01         # 0x01 = sol, 0x02 = sağ
 LEVER_EXTEND_ON_DS = True # True: DS başlayınca lever çıkar (False: response window'da çıkar)
+RESPONSE_DELAY_S   = 0.0  # DS başladıktan kaç saniye sonra yanıt penceresi açılır (lever çıkar)
 
 # ─── Işık Renkleri (R, G, B) ──────────────────────────────────────────────────
 CUE_DS_PLUS_COLOR  = (0,   255, 0)    # DS+ → Yeşil
@@ -42,6 +43,8 @@ HOUSE_LIGHT_COLOR  = (255, 255, 255)  # Beyaz (ITI sırasında)
 # ─── Avisoft Playlist ─────────────────────────────────────────────────────────
 DS_PLUS_WAV        = r"C:\sounds\ds_plus.wav"   # DS+ ses dosyası yolu
 DS_MINUS_WAV       = r"C:\sounds\ds_minus.wav"  # DS− ses dosyası yolu
+DS_PLUS_WAV_LIST   = []  # DS+ için birden fazla wav dosyası (boşsa DS_PLUS_WAV kullanılır)
+DS_MINUS_WAV_LIST  = []  # DS− için birden fazla wav dosyası (boşsa DS_MINUS_WAV kullanılır)
 AVISOFT_PLAYLIST   = r"C:\sounds\playlist.txt"  # Avisoft'un okuyacağı playlist
 AVISOFT_EXE        = r"C:\Program Files (x86)\Avisoft Bioacoustics\RECORDER USGH\rec_usgh.exe"
 AVISOFT_LAUNCH_DELAY_S = 3.0  # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)

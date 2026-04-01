@@ -92,7 +92,8 @@ class Experiment:
         }
 
         # Trial sırası
-        self.trial_sequence: list[DSType] = []
+        self.trial_sequence:   list[DSType] = []
+        self.trial_wav_files:  list[str]    = []
 
         # Thread kontrol
         self._stop_event    = threading.Event()
@@ -531,19 +532,28 @@ class Experiment:
     # ── Avisoft Playlist ──────────────────────────────────────────────────────
 
     def generate_avisoft_playlist(self) -> str:
-        lines = [
-            config.DS_PLUS_WAV if ds == DSType.PLUS else config.DS_MINUS_WAV
-            for ds in self.trial_sequence
-        ]
+        import random as _rnd
+        lines = []
+        self.trial_wav_files = []
+        for ds in self.trial_sequence:
+            if ds == DSType.PLUS:
+                wav = _rnd.choice(config.DS_PLUS_WAV_LIST) if config.DS_PLUS_WAV_LIST else config.DS_PLUS_WAV
+            else:
+                wav = _rnd.choice(config.DS_MINUS_WAV_LIST) if config.DS_MINUS_WAV_LIST else config.DS_MINUS_WAV
+            lines.append(wav)
+            self.trial_wav_files.append(wav)
+
         playlist_path = config.AVISOFT_PLAYLIST
         parent = os.path.dirname(playlist_path)
         if parent:
             os.makedirs(parent, exist_ok=True)
         with open(playlist_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        self.log.info(f"Playlist: {playlist_path} ({len(lines)} ses, "
-                      f"DS+:{lines.count(config.DS_PLUS_WAV)} "
-                      f"DS−:{lines.count(config.DS_MINUS_WAV)})")
+
+        from collections import Counter
+        counts = Counter(lines)
+        count_str = ", ".join(f"{os.path.basename(k)}:{v}" for k, v in counts.items())
+        self.log.info(f"Playlist: {playlist_path} ({len(lines)} ses, {count_str})")
         return playlist_path
 
     # ── CSV Log ───────────────────────────────────────────────────────────────
@@ -562,7 +572,7 @@ class Experiment:
             "timestamp",
             "hit_rate", "cr_rate", "d_prime",
             "rewarded", "punished", "omission", "correct_rejection",
-            "sound_confirmed", "criterion_reached",
+            "sound_confirmed", "criterion_reached", "wav_file",
         ])
         self.log.info(f"Log: {self._log_file}")
 
@@ -570,6 +580,9 @@ class Experiment:
         if not self._csv_writer:
             return
         hr, cr, dp = self.discrimination_metrics()
+        wav = (self.trial_wav_files[self.trial_num - 1]
+               if self.trial_wav_files and self.trial_num - 1 < len(self.trial_wav_files)
+               else "")
         self._csv_writer.writerow([
             self.animal_id,
             self.trial_num,
@@ -587,5 +600,6 @@ class Experiment:
             self.stats["correct_rejection"],
             int(self._sound_confirmed),
             int(hr >= config.CRITERION_HIT_RATE and dp >= config.CRITERION_DPRIME),
+            wav,
         ])
         self._csv_file.flush()
