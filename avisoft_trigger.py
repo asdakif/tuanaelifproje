@@ -51,6 +51,7 @@ class AvisoftTrigger:
         self.log            = logging.getLogger("AvisoftTrigger")
         self._hwnd          = None   # Ana RECORDER USGH penceresi
         self._hwnd_playlist = None   # Playlist penceresi
+        self._recorder_hwnd = None
         if win32gui is None:
             self.log.warning("pywin32 yüklü değil — pip install pywin32")
         else:
@@ -165,81 +166,63 @@ class AvisoftTrigger:
             )
         return found[0]
 
+    # ── Kayıt penceresi ────────────────────────────────────────────────────
+
+    def _find_recorder_window(self):
+        """Kayit yapan ikinci RECORDER USGH penceresini bul (Player olmayan)"""
+        def callback(hwnd, results):
+            title = win32gui.GetWindowText(hwnd)
+            if "RECORDER" in title.upper() or "USGH" in title.upper():
+                results.append((hwnd, title))
+            return True
+        results = []
+        win32gui.EnumWindows(callback, results)
+
+        # Birden fazla RECORDER penceresi varsa, playlist penceresi olmayani sec (kayit penceresi)
+        for hwnd, title in results:
+            if hwnd != self._hwnd_playlist:
+                self._recorder_hwnd = hwnd
+                self.log.info(f"Kayit penceresi bulundu: {title}")
+                return True
+
+        if results:
+            self._recorder_hwnd = results[0][0]
+            return True
+        self.log.error("Kayit RECORDER penceresi bulunamadi!")
+        return False
+
     # ── Kayıt başlatma ─────────────────────────────────────────────────────
 
-    def start_recording(self) -> bool:
-        """
-        Avisoft Recorder ana penceresine Ctrl+S göndererek kaydı başlatır.
-        Playlist trigger'ı etkilemez.
-        """
+    def start_recording(self):
+        """Kayit RECORDER penceresine Monitoring Start komutu gonder"""
         if win32gui is None:
-            self.log.error("pywin32 yüklü değil")
             return False
-
-        if not self._hwnd or not win32gui.IsWindow(self._hwnd):
-            if not self._find_window():
+        if not self._recorder_hwnd or not win32gui.IsWindow(self._recorder_hwnd):
+            if not self._find_recorder_window():
                 return False
-            if not self._hwnd:
-                self.log.error("Avisoft Recorder ana penceresi bulunamadı")
-                return False
-
-        target = self._hwnd
-        user32 = ctypes.windll.user32
         try:
-            current_tid  = win32api.GetCurrentThreadId()
-            target_tid, _= win32process.GetWindowThreadProcessId(target)
-            prev_hwnd    = win32gui.GetForegroundWindow()
-
-            attached = False
-            if current_tid != target_tid:
-                try:
-                    win32process.AttachThreadInput(current_tid, target_tid, True)
-                    attached = True
-                except Exception:
-                    pass
-
+            current_hwnd = win32gui.GetForegroundWindow()
+            win32gui.SetForegroundWindow(self._recorder_hwnd)
+            time.sleep(0.1)
+            # F5 = Monitoring Start/Stop toggle in RECORDER
+            win32api.keybd_event(win32con.VK_F5, 0, 0, 0)
+            time.sleep(0.01)
+            win32api.keybd_event(win32con.VK_F5, 0, win32con.KEYEVENTF_KEYUP, 0)
+            time.sleep(0.1)
             try:
-                user32.ShowWindow(target, 9)       # SW_RESTORE
-                user32.BringWindowToTop(target)
-                user32.SetForegroundWindow(target)
-                user32.SetActiveWindow(target)
-                time.sleep(0.15)
-
-                # Ctrl+S
-                _send_key(win32con.VK_CONTROL)
-                _send_key(ord('S'))
-                _send_key(ord('S'), key_up=True)
-                _send_key(win32con.VK_CONTROL, key_up=True)
-                time.sleep(0.05)
-
-                def _lp(scan, key_up=False):
-                    lp = 1 | (scan << 16)
-                    if key_up:
-                        lp |= (1 << 30) | (1 << 31)
-                    return lp
-                sc = win32api.MapVirtualKey(win32con.VK_CONTROL, 0)
-                ss = win32api.MapVirtualKey(ord('S'), 0)
-                win32gui.PostMessage(target, win32con.WM_KEYDOWN, win32con.VK_CONTROL, _lp(sc))
-                win32gui.PostMessage(target, win32con.WM_KEYDOWN, ord('S'),             _lp(ss))
-                win32gui.PostMessage(target, win32con.WM_KEYUP,   ord('S'),             _lp(ss, True))
-                win32gui.PostMessage(target, win32con.WM_KEYUP,   win32con.VK_CONTROL,  _lp(sc, True))
-
-            finally:
-                if attached:
-                    win32process.AttachThreadInput(current_tid, target_tid, False)
-                time.sleep(0.05)
-                try:
-                    if prev_hwnd and win32gui.IsWindow(prev_hwnd):
-                        user32.SetForegroundWindow(prev_hwnd)
-                except Exception:
-                    pass
-
-            self.log.info("Avisoft kayıt başlatıldı (Ctrl+S → Recorder)")
+                if current_hwnd and win32gui.IsWindow(current_hwnd):
+                    win32gui.SetForegroundWindow(current_hwnd)
+            except:
+                pass
+            self.log.info("Kayit baslatildi")
             return True
-
         except Exception as e:
-            self.log.error(f"Avisoft kayıt başlatma hatası: {e}")
+            self.log.error(f"Kayit baslatma hatasi: {e}")
             return False
+
+    def stop_recording(self):
+        """Kayit durdur - ayni F5 toggle"""
+        return self.start_recording()  # F5 toggle oldugu icin ayni metod
 
     # ── Trigger ────────────────────────────────────────────────────────────
 

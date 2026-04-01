@@ -338,6 +338,9 @@ class Experiment:
 
     def _run(self):
         self.log.info(f"Deney başladı — Hayvan: {self.animal_id} — {config.NUM_TRIALS} trial")
+        if self.avisoft_trigger:
+            self.avisoft_trigger.start_recording()
+            self.log.info("USV kaydi baslatildi")
         try:
             for trial_idx, ds_type in enumerate(self.trial_sequence):
                 if self._stop_event.is_set():
@@ -353,6 +356,9 @@ class Experiment:
                     f"Deney tamamlandı — Hit: {hr:.1%} | CR: {cr:.1%} | d': {dp:.2f}"
                 )
         finally:
+            if self.avisoft_trigger:
+                self.avisoft_trigger.stop_recording()
+                self.log.info("USV kaydi durduruldu")
             self._in_iti = False
             self.box.shock(False)
             self.box.house_light_off()
