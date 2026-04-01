@@ -293,6 +293,10 @@ class Experiment:
         if self.avisoft_trigger:
             self.avisoft_trigger._find_window()
             self.avisoft_trigger.list_children()
+            # Playback listesindeki Start butonuna basarak playback'i başlat
+            self.avisoft_trigger.trigger()
+            # Recorder'da Ctrl+S ile kaydı başlat
+            self.avisoft_trigger.start_recording()
 
     def prepare_playlist(self, max_consecutive: int = 3) -> str:
         """Trial sırası oluştur ve Avisoft playlist dosyasını yaz (deney başlamadan)."""

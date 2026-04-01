@@ -169,7 +169,7 @@ class AvisoftTrigger:
 
     def start_recording(self) -> bool:
         """
-        Avisoft Recorder ana penceresine Shift+Space göndererek kaydı başlatır.
+        Avisoft Recorder ana penceresine Ctrl+S göndererek kaydı başlatır.
         Playlist trigger'ı etkilemez.
         """
         if win32gui is None:
@@ -205,25 +205,24 @@ class AvisoftTrigger:
                 user32.SetActiveWindow(target)
                 time.sleep(0.15)
 
-                _send_key(win32con.VK_SHIFT)
-                _send_key(win32con.VK_SPACE)
-                _send_key(win32con.VK_SPACE, key_up=True)
-                _send_key(win32con.VK_SHIFT, key_up=True)
+                # Ctrl+S
+                _send_key(win32con.VK_CONTROL)
+                _send_key(ord('S'))
+                _send_key(ord('S'), key_up=True)
+                _send_key(win32con.VK_CONTROL, key_up=True)
                 time.sleep(0.05)
 
-                # PostMessage ile de gönder (bazı Avisoft sürümlerinde daha güvenilir)
                 def _lp(scan, key_up=False):
                     lp = 1 | (scan << 16)
                     if key_up:
                         lp |= (1 << 30) | (1 << 31)
                     return lp
-                ss = win32api.MapVirtualKey(win32con.VK_SHIFT, 0)
-                sp = win32api.MapVirtualKey(win32con.VK_SPACE, 0)
-                win32gui.PostMessage(target, win32con.WM_KEYDOWN, win32con.VK_SHIFT, _lp(ss))
-                win32gui.PostMessage(target, win32con.WM_KEYDOWN, win32con.VK_SPACE, _lp(sp))
-                win32gui.PostMessage(target, win32con.WM_CHAR,    0x20,              _lp(sp))
-                win32gui.PostMessage(target, win32con.WM_KEYUP,   win32con.VK_SPACE, _lp(sp, True))
-                win32gui.PostMessage(target, win32con.WM_KEYUP,   win32con.VK_SHIFT, _lp(ss, True))
+                sc = win32api.MapVirtualKey(win32con.VK_CONTROL, 0)
+                ss = win32api.MapVirtualKey(ord('S'), 0)
+                win32gui.PostMessage(target, win32con.WM_KEYDOWN, win32con.VK_CONTROL, _lp(sc))
+                win32gui.PostMessage(target, win32con.WM_KEYDOWN, ord('S'),             _lp(ss))
+                win32gui.PostMessage(target, win32con.WM_KEYUP,   ord('S'),             _lp(ss, True))
+                win32gui.PostMessage(target, win32con.WM_KEYUP,   win32con.VK_CONTROL,  _lp(sc, True))
 
             finally:
                 if attached:
@@ -235,7 +234,7 @@ class AvisoftTrigger:
                 except Exception:
                     pass
 
-            self.log.info("Avisoft kayıt başlatıldı (Shift+Space → Recorder)")
+            self.log.info("Avisoft kayıt başlatıldı (Ctrl+S → Recorder)")
             return True
 
         except Exception as e:
