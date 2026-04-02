@@ -258,6 +258,14 @@ class Experiment:
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
     def _launch_avisoft(self):
+        # ── Zaten açık mı? ────────────────────────────────────────────────────
+        if self.avisoft_trigger and self.avisoft_trigger._find_window():
+            self.log.info("Avisoft zaten çalışıyor — yeni pencere açılmıyor.")
+            self.avisoft_trigger.list_children()
+            self.avisoft_trigger.trigger()
+            self.avisoft_trigger.start_recording()
+            return
+
         # ── Playback ──────────────────────────────────────────────────────────
         pb_exe = config.AVISOFT_EXE
         pb_cfg = config.AVISOFT_PLAYBACK_CONFIG
@@ -273,10 +281,10 @@ class Experiment:
         else:
             self.log.info("Avisoft Playback exe bulunamadı, manuel başlatılmalı.")
 
-        # ── Recorder ──────────────────────────────────────────────────────────
+        # ── Recorder (yalnızca ayrı bir exe belirtilmişse) ────────────────────
         rec_exe = config.AVISOFT_RECORD_EXE
         rec_cfg = config.AVISOFT_RECORD_CONFIG
-        if rec_exe and os.path.isfile(rec_exe):
+        if rec_exe and rec_exe != pb_exe and os.path.isfile(rec_exe):
             try:
                 args = [rec_exe, rec_cfg] if rec_cfg and os.path.isfile(rec_cfg) else [rec_exe]
                 subprocess.Popen(args)

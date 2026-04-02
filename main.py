@@ -557,8 +557,6 @@ class App(tk.Tk):
             config.AVISOFT_PLAYLIST          = self.var_playlist.get().strip()
             config.AVISOFT_EXE               = self.var_avisoft_exe.get().strip()
             config.AVISOFT_PLAYBACK_CONFIG   = self.var_playback_config.get().strip()
-            if not self.var_record_exe.get().strip():
-                self.var_record_exe.set(self.var_avisoft_exe.get())
             config.AVISOFT_RECORD_EXE        = self.var_record_exe.get().strip()
             config.AVISOFT_RECORD_CONFIG     = self.var_record_config.get().strip()
             config.AVISOFT_LAUNCH_DELAY_S    = float(self.var_avisoft_delay.get())
