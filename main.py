@@ -138,6 +138,7 @@ class App(tk.Tk):
         param_frame.pack(fill="x", pady=4)
 
         params = [
+            ("Baseline süresi (s):", "var_baseline_dur",  str(config.BASELINE_DURATION_S)),
             ("Trial sayısı:",        "var_num_trials",   str(config.NUM_TRIALS)),
             ("DS+ oranı (0-1):",     "var_ds_ratio",     str(config.DS_PLUS_RATIO)),
             ("ITI min (s):",         "var_iti_min",       str(config.ITI_MIN_S)),
@@ -529,6 +530,7 @@ class App(tk.Tk):
 
     def _apply_params(self) -> bool:
         try:
+            config.BASELINE_DURATION_S   = float(self.var_baseline_dur.get())
             config.NUM_TRIALS            = int(self.var_num_trials.get())
             config.DS_PLUS_RATIO         = float(self.var_ds_ratio.get())
             config.ITI_MIN_S             = float(self.var_iti_min.get())

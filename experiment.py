@@ -346,6 +346,18 @@ class Experiment:
         if self.avisoft_trigger:
             self.avisoft_trigger.start_recording()
             self.log.info("USV kaydi baslatildi")
+
+        # ── Baseline ──────────────────────────────────────────────────────────
+        if config.BASELINE_DURATION_S > 0:
+            self.state = State.ITI
+            self._emit_state()
+            r, g, b = config.HOUSE_LIGHT_COLOR
+            self.box.house_light(r, g, b)
+            self.log.info(f"Baseline: {config.BASELINE_DURATION_S}s bekleniyor…")
+            if self._stop_event.wait(config.BASELINE_DURATION_S):
+                return
+            self.log.info("Baseline tamamlandı — trial döngüsü başlıyor")
+
         try:
             for trial_idx, ds_type in enumerate(self.trial_sequence):
                 if self._stop_event.is_set():

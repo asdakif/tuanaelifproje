@@ -9,6 +9,7 @@ CHANNEL           = 0x01    # Kutu kanal numarası (1-4)
 ANIMAL_ID = ""   # Her deney başında GUI'den girilir
 
 # ─── Deney Parametreleri ───────────────────────────────────────────────────────
+BASELINE_DURATION_S = 0.0  # Deney başlamadan önceki baseline süresi (saniye, 0 = devre dışı)
 NUM_TRIALS        = 50     # Toplam trial sayısı
 DS_PLUS_RATIO     = 0.5    # DS+ trial oranı (0.5 = %50)
 ITI_MIN_S         = 5.0    # Minimum inter-trial interval (saniye)
