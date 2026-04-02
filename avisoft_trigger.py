@@ -168,61 +168,101 @@ class AvisoftTrigger:
 
     # ── Kayıt penceresi ────────────────────────────────────────────────────
 
-    def _find_recorder_window(self):
-        """Kayit yapan ikinci RECORDER USGH penceresini bul (Player olmayan)"""
+    def _find_recorder(self):
+        import config
+        if win32gui is None:
+            return False
+
+        target = config.AVISOFT_RECORDER_WINDOW.strip()
+
         def callback(hwnd, results):
+            if not win32gui.IsWindowVisible(hwnd):
+                return True
             title = win32gui.GetWindowText(hwnd)
-            if "RECORDER" in title.upper() or "USGH" in title.upper():
-                results.append((hwnd, title))
+            if not title:
+                return True
+            results.append((hwnd, title))
             return True
+
         results = []
         win32gui.EnumWindows(callback, results)
 
-        # Birden fazla RECORDER penceresi varsa, playlist penceresi olmayani sec (kayit penceresi)
+        # Once tam eslesme ara
         for hwnd, title in results:
-            if hwnd != self._hwnd_playlist:
+            if title.strip() == target:
                 self._recorder_hwnd = hwnd
-                self.log.info(f"Kayit penceresi bulundu: {title}")
+                self.log.info(f"Recorder penceresi bulundu: '{title}'")
                 return True
 
-        if results:
-            self._recorder_hwnd = results[0][0]
-            return True
-        self.log.error("Kayit RECORDER penceresi bulunamadi!")
+        # Tam eslesme yoksa #2 iceren RECORDER penceresi ara
+        for hwnd, title in results:
+            if "#2" in title and "RECORDER" in title.upper():
+                self._recorder_hwnd = hwnd
+                self.log.info(f"Recorder penceresi bulundu: '{title}'")
+                return True
+
+        self.log.error(f"Recorder penceresi bulunamadi! '{target}' baslikli pencere acik mi?")
         return False
 
     # ── Kayıt başlatma ─────────────────────────────────────────────────────
 
     def start_recording(self):
-        """Kayit RECORDER penceresine Monitoring Start komutu gonder"""
+        """Kayit RECORDER penceresine Ctrl+S gonder"""
         if win32gui is None:
             return False
         if not self._recorder_hwnd or not win32gui.IsWindow(self._recorder_hwnd):
-            if not self._find_recorder_window():
+            if not self._find_recorder():
                 return False
         try:
             current_hwnd = win32gui.GetForegroundWindow()
             win32gui.SetForegroundWindow(self._recorder_hwnd)
             time.sleep(0.1)
-            # F5 = Monitoring Start/Stop toggle in RECORDER
-            win32api.keybd_event(win32con.VK_F5, 0, 0, 0)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
             time.sleep(0.01)
-            win32api.keybd_event(win32con.VK_F5, 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(ord('S'), 0, 0, 0)
+            time.sleep(0.01)
+            win32api.keybd_event(ord('S'), 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
             time.sleep(0.1)
             try:
                 if current_hwnd and win32gui.IsWindow(current_hwnd):
                     win32gui.SetForegroundWindow(current_hwnd)
             except:
                 pass
-            self.log.info("Kayit baslatildi")
+            self.log.info("Kayit baslatildi (Ctrl+S)")
             return True
         except Exception as e:
             self.log.error(f"Kayit baslatma hatasi: {e}")
             return False
 
     def stop_recording(self):
-        """Kayit durdur - ayni F5 toggle"""
-        return self.start_recording()  # F5 toggle oldugu icin ayni metod
+        """Kayit durdur - ayni Ctrl+S toggle"""
+        if win32gui is None:
+            return False
+        if not self._recorder_hwnd or not win32gui.IsWindow(self._recorder_hwnd):
+            if not self._find_recorder():
+                return False
+        try:
+            current_hwnd = win32gui.GetForegroundWindow()
+            win32gui.SetForegroundWindow(self._recorder_hwnd)
+            time.sleep(0.1)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)
+            time.sleep(0.01)
+            win32api.keybd_event(ord('S'), 0, 0, 0)
+            time.sleep(0.01)
+            win32api.keybd_event(ord('S'), 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+            time.sleep(0.1)
+            try:
+                if current_hwnd and win32gui.IsWindow(current_hwnd):
+                    win32gui.SetForegroundWindow(current_hwnd)
+            except:
+                pass
+            self.log.info("Kayit durduruldu (Ctrl+S)")
+            return True
+        except Exception as e:
+            self.log.error(f"Kayit durdurma hatasi: {e}")
+            return False
 
     # ── Trigger ────────────────────────────────────────────────────────────
 
