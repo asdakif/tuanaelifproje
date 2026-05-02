@@ -434,7 +434,10 @@ def generate_excel(csv_path: str) -> str:
         ws2.row_dimensions[rx].height = 18
 
     # ── Kaydet ────────────────────────────────────────────────────────────────
-    excel_path = csv_path.replace(".csv", "_rapor.xlsx")
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    os.makedirs(desktop, exist_ok=True)
+    fname      = os.path.basename(csv_path).replace(".csv", "_rapor.xlsx")
+    excel_path = os.path.join(desktop, fname)
     wb.save(excel_path)
     return excel_path
 
@@ -551,7 +554,10 @@ def generate_magazine_report(csv_path: str) -> str:
         write(ws2, rx, 5, int(r.get("cumulative_licks", 0) or 0),  bg=C["surface"], fg=C["text"])
         ws2.row_dimensions[rx].height = 18
 
-    excel_path = csv_path.replace(".csv", "_rapor.xlsx")
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    os.makedirs(desktop, exist_ok=True)
+    fname      = os.path.basename(csv_path).replace(".csv", "_rapor.xlsx")
+    excel_path = os.path.join(desktop, fname)
     wb.save(excel_path)
     return excel_path
 
@@ -668,7 +674,10 @@ def generate_lever_report(csv_path: str) -> str:
         write(ws2, rx, 5, int(r.get("cumulative_licks", 0) or 0),  bg=C["surface"], fg=C["text"])
         ws2.row_dimensions[rx].height = 18
 
-    excel_path = csv_path.replace(".csv", "_rapor.xlsx")
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    os.makedirs(desktop, exist_ok=True)
+    fname      = os.path.basename(csv_path).replace(".csv", "_rapor.xlsx")
+    excel_path = os.path.join(desktop, fname)
     wb.save(excel_path)
     return excel_path
 
