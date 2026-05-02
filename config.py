@@ -20,6 +20,14 @@ MAGAZINE_TRAINING_DURATION_S    = 2400.0  # Toplam training süresi (saniye, ~40
 MAGAZINE_TRAINING_WATER_PULSES  = 3     # Her teslimatta kaç damla su
 MAGAZINE_TRAINING_WATER_GAP_S   = 0.1   # Damlalar arası bekleme (saniye)
 
+# ─── Lever Training ───────────────────────────────────────────────────────────
+# Lever sürekli dışarıda durur; her basışta su ödülü verilir.
+LEVER_TRAINING_ENABLED       = False  # True = lever training aşamasını çalıştır
+LEVER_TRAINING_ONLY          = False  # True = lever training sonrası trial çalıştırma
+LEVER_TRAINING_DURATION_S    = 1800.0 # Toplam training süresi (saniye, ~30 dk)
+LEVER_TRAINING_WATER_PULSES  = 3      # Her basışta kaç damla su
+LEVER_TRAINING_WATER_GAP_S   = 0.1   # Damlalar arası bekleme (saniye)
+
 BASELINE_DURATION_S = 0.0  # Deney başlamadan önceki baseline süresi (saniye, 0 = devre dışı)
 NUM_TRIALS        = 50     # Toplam trial sayısı
 DS_PLUS_RATIO     = 0.5    # DS+ trial oranı (0.5 = %50)

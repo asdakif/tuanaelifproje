@@ -19,12 +19,13 @@ from operant_box import OperantBox
 
 
 class State(Enum):
-    IDLE        = auto()
-    ITI         = auto()
-    DS_ON       = auto()
-    RESPONSE    = auto()
-    OUTCOME     = auto()
-    SESSION_END = auto()
+    IDLE          = auto()
+    ITI           = auto()
+    DS_ON         = auto()
+    RESPONSE      = auto()
+    OUTCOME       = auto()
+    SESSION_END   = auto()
+    LEV_TRAINING  = auto()
 
 
 class DSType(Enum):
@@ -78,6 +79,7 @@ class Experiment:
         self.total_licks         = 0
         self._counting_licks     = False
         self._mag_delivery_licks = 0   # magazine training: mevcut delivery başına lick
+        self._lev_press_licks    = 0   # lever training: son basıştan bu yana lick
 
         # Avisoft DOUT onayı
         self._sound_confirmed  = False
@@ -97,9 +99,10 @@ class Experiment:
         self.trial_wav_files:  list[str]    = []
 
         # Thread kontrol
-        self._stop_event    = threading.Event()
+        self._stop_event     = threading.Event()
         self._mag_stop_event = threading.Event()  # sadece magazine training'i bitirir
-        self._lever_event   = threading.Event()
+        self._lev_stop_event = threading.Event()  # sadece lever training'i bitirir
+        self._lever_event    = threading.Event()
         self._main_thread: Optional[threading.Thread] = None
 
         # Callbacks
@@ -112,6 +115,7 @@ class Experiment:
         # Log
         self._log_file:          Optional[str] = None
         self.magazine_log_file:  Optional[str] = None
+        self.lever_log_file:     Optional[str] = None
         self._csv_writer = None
         self._csv_file   = None
 
@@ -197,6 +201,12 @@ class Experiment:
     # ── Sinyal işleyiciler ────────────────────────────────────────────────────
 
     def _on_lever_press(self, side: str):
+        if self.state == State.LEV_TRAINING:
+            self._lev_press_licks = 0   # her basışta lick sayacını sıfırla
+            self._lever_event.set()     # _run_lever_training'i uyandır
+            threading.Thread(target=self._deliver_lever_training_reward, daemon=True).start()
+            return
+
         if self.state == State.ITI and self._in_iti:
             self.iti_presses      += 1
             self.total_iti_presses += 1
@@ -218,6 +228,17 @@ class Experiment:
             self._lever_event.set()
             # Her basışa anlık ödül/ceza
             threading.Thread(target=self._deliver_press_outcome, daemon=True).start()
+
+    def _deliver_lever_training_reward(self):
+        """Lever training: her basışa anında su ver."""
+        try:
+            for _ in range(config.LEVER_TRAINING_WATER_PULSES):
+                if self._lev_stop_event.is_set() or self._stop_event.is_set():
+                    break
+                self.box.water(config.WATER_SIDE)
+                self._lev_stop_event.wait(config.LEVER_TRAINING_WATER_GAP_S)
+        except Exception as e:
+            self.log.error(f"Lever training ödül hatası: {e}")
 
     def _deliver_press_outcome(self):
         """Her lever basışına ödül/ceza ver."""
@@ -252,6 +273,7 @@ class Experiment:
             self.lick_count          += 1
             self.total_licks         += 1
             self._mag_delivery_licks += 1
+            self._lev_press_licks    += 1
             self.log.info(f"Lick — {side} | trial: {self.lick_count}, toplam: {self.total_licks}")
             for cb in self._on_lick_update:
                 try:
@@ -317,6 +339,7 @@ class Experiment:
             return
         self._stop_event.clear()
         self._mag_stop_event.clear()
+        self._lev_stop_event.clear()
         self.animal_id         = animal_id or config.ANIMAL_ID
         self.trial_num         = 0
         self.total_licks       = 0
@@ -344,8 +367,14 @@ class Experiment:
         self._mag_stop_event.set()
         self.log.info("Magazine training durduruldu — trial döngüsüne geçiliyor")
 
+    def stop_lever_training(self):
+        """Sadece lever training'i bitirir, trial döngüsüne geçilir."""
+        self._lev_stop_event.set()
+        self.log.info("Lever training durduruldu — trial döngüsüne geçiliyor")
+
     def stop(self):
         self._mag_stop_event.set()
+        self._lev_stop_event.set()
         self._stop_event.set()
         self._lever_event.set()
         self._dout_event.set()
@@ -432,6 +461,69 @@ class Experiment:
                 self._emit_state()
                 return
             self.log.info("Magazine training tamamlandı — trial döngüsüne geçiliyor")
+
+        # ── Lever Training ────────────────────────────────────────────────────
+        if config.LEVER_TRAINING_ENABLED:
+            self.state = State.LEV_TRAINING
+            self._emit_state()
+            r, g, b = config.HOUSE_LIGHT_COLOR
+            self.box.house_light(r, g, b)
+            self.box.lever_extend(config.LEVER_SIDE)
+            dur_s = config.LEVER_TRAINING_DURATION_S
+            self.log.info(
+                f"Lever training başladı — lever çıktı, her basışa ödül | süre: {dur_s}s"
+            )
+
+            lev_csv_file, lev_csv_writer = self._open_lever_log()
+            lev_start = time.time()
+            self.lick_count       = 0
+            self._lev_press_licks = 0
+            self._counting_licks  = True
+            press_num = 0
+            total_presses = 0
+
+            while not self._lev_stop_event.is_set():
+                if dur_s > 0 and time.time() - lev_start >= dur_s:
+                    break
+                # Lever basışını bekle (0.1s zaman aşımıyla polling)
+                self._lever_event.wait(0.1)
+                if not self._lever_event.is_set():
+                    continue
+                self._lever_event.clear()
+
+                if self._lev_stop_event.is_set() or self._stop_event.is_set():
+                    break
+
+                press_num     += 1
+                total_presses += 1
+                elapsed        = time.time() - lev_start
+                lick_this      = self._lev_press_licks
+                self.log.info(
+                    f"Lever training — basış {press_num} "
+                    f"(lick son aralıkta: {lick_this}, toplam: {self.total_licks}, "
+                    f"geçen: {elapsed:.1f}s)"
+                )
+                if lev_csv_writer:
+                    lev_csv_writer.writerow([
+                        self.animal_id, self.session_id,
+                        press_num,
+                        datetime.now().isoformat(),
+                        f"{elapsed:.2f}",
+                        lick_this,
+                        self.total_licks,
+                    ])
+                    lev_csv_file.flush()
+
+            self._counting_licks = False
+            self.box.lever_retract(config.LEVER_SIDE)
+            if lev_csv_file:
+                lev_csv_file.close()
+            if config.LEVER_TRAINING_ONLY:
+                self.log.info("Lever training tamamlandı — sadece lever training modu, duruluyor")
+                self.state = State.SESSION_END
+                self._emit_state()
+                return
+            self.log.info("Lever training tamamlandı — trial döngüsüne geçiliyor")
 
         # ── Baseline ──────────────────────────────────────────────────────────
         if config.BASELINE_DURATION_S > 0:
@@ -714,6 +806,31 @@ class Experiment:
         return playlist_path
 
     # ── CSV Log ───────────────────────────────────────────────────────────────
+
+    def _open_lever_log(self):
+        """Lever training için ayrı CSV dosyası aç. (file_handle, writer) döner."""
+        try:
+            os.makedirs(config.LOG_DIR, exist_ok=True)
+            path = os.path.join(
+                config.LOG_DIR,
+                f"lever_{self.animal_id}_{self.session_id}.csv"
+            )
+            f = open(path, "w", newline="", encoding="utf-8")
+            w = csv.writer(f)
+            w.writerow([
+                "animal_id", "session_id",
+                "press_num",
+                "timestamp",
+                "elapsed_s",
+                "lick_count_since_prev_press",
+                "cumulative_licks",
+            ])
+            self.lever_log_file = path
+            self.log.info(f"Lever training log: {path}")
+            return f, w
+        except Exception as e:
+            self.log.error(f"Lever log açılamadı: {e}")
+            return None, None
 
     def _open_magazine_log(self):
         """Magazine training için ayrı CSV dosyası aç. (file_handle, writer) döner."""

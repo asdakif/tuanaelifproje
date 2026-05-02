@@ -160,6 +160,31 @@ class App(tk.Tk):
             setattr(self, var_name, var)
             ttk.Entry(mag_frame, textvariable=var, width=8).grid(row=i, column=1, **PAD)
 
+        # ── Lever Training ────────────────
+        lev_tr_frame = ttk.LabelFrame(left, text="Lever Training")
+        lev_tr_frame.pack(fill="x", pady=4)
+
+        self.var_lev_enabled = tk.BooleanVar(value=config.LEVER_TRAINING_ENABLED)
+        ttk.Checkbutton(lev_tr_frame, text="Lever training aktif",
+                        variable=self.var_lev_enabled).grid(
+                            row=0, column=0, columnspan=2, sticky="w", **PAD)
+
+        self.var_lev_only = tk.BooleanVar(value=config.LEVER_TRAINING_ONLY)
+        ttk.Checkbutton(lev_tr_frame, text="Sadece lever training (trial yok)",
+                        variable=self.var_lev_only).grid(
+                            row=1, column=0, columnspan=2, sticky="w", **PAD)
+
+        lev_params = [
+            ("Toplam süre (s):",   "var_lev_duration",     str(config.LEVER_TRAINING_DURATION_S)),
+            ("Su damla sayısı:",   "var_lev_water_pulses", str(config.LEVER_TRAINING_WATER_PULSES)),
+            ("Damla aralığı (s):", "var_lev_water_gap",    str(config.LEVER_TRAINING_WATER_GAP_S)),
+        ]
+        for i, (label, var_name, default) in enumerate(lev_params, start=2):
+            ttk.Label(lev_tr_frame, text=label).grid(row=i, column=0, sticky="w", **PAD)
+            var = tk.StringVar(value=default)
+            setattr(self, var_name, var)
+            ttk.Entry(lev_tr_frame, textvariable=var, width=8).grid(row=i, column=1, **PAD)
+
         # ── Deney Parametreleri ───────────
         param_frame = ttk.LabelFrame(left, text="Deney Parametreleri")
         param_frame.pack(fill="x", pady=4)
@@ -318,9 +343,13 @@ class App(tk.Tk):
         self.btn_start = ttk.Button(ctrl_frame, text="▶  Başlat", command=self._start, state="disabled")
         self.btn_start.pack(fill="x", padx=8, pady=2)
 
-        self.btn_mag_stop = ttk.Button(ctrl_frame, text="→  Trials'a Geç",
+        self.btn_mag_stop = ttk.Button(ctrl_frame, text="→  Trials'a Geç (Mag)",
                                        command=self._stop_magazine, state="disabled")
         self.btn_mag_stop.pack(fill="x", padx=8, pady=2)
+
+        self.btn_lev_stop = ttk.Button(ctrl_frame, text="→  Trials'a Geç (Lev)",
+                                       command=self._stop_lever_training, state="disabled")
+        self.btn_lev_stop.pack(fill="x", padx=8, pady=2)
 
         self.btn_stop = ttk.Button(ctrl_frame, text="⏹  Durdur", command=self._stop, state="disabled")
         self.btn_stop.pack(fill="x", padx=8, pady=2)
@@ -569,6 +598,11 @@ class App(tk.Tk):
             config.MAGAZINE_TRAINING_DURATION_S   = float(self.var_mag_duration.get())
             config.MAGAZINE_TRAINING_WATER_PULSES = int(self.var_mag_water_pulses.get())
             config.MAGAZINE_TRAINING_WATER_GAP_S  = float(self.var_mag_water_gap.get())
+            config.LEVER_TRAINING_ENABLED         = self.var_lev_enabled.get()
+            config.LEVER_TRAINING_ONLY            = self.var_lev_only.get()
+            config.LEVER_TRAINING_DURATION_S      = float(self.var_lev_duration.get())
+            config.LEVER_TRAINING_WATER_PULSES    = int(self.var_lev_water_pulses.get())
+            config.LEVER_TRAINING_WATER_GAP_S     = float(self.var_lev_water_gap.get())
             config.BASELINE_DURATION_S   = float(self.var_baseline_dur.get())
             config.NUM_TRIALS            = int(self.var_num_trials.get())
             config.DS_PLUS_RATIO         = float(self.var_ds_ratio.get())
@@ -633,6 +667,8 @@ class App(tk.Tk):
         self.btn_stop.configure(state="normal")
         if config.MAGAZINE_TRAINING_ENABLED:
             self.btn_mag_stop.configure(state="normal")
+        if config.LEVER_TRAINING_ENABLED:
+            self.btn_lev_stop.configure(state="normal")
         logging.getLogger("App").info(
             f"Hayvan {self._animal_index + 1}/{total}: {animal_id} başlıyor"
         )
@@ -644,11 +680,17 @@ class App(tk.Tk):
             self.exp.stop_magazine_training()
         self.btn_mag_stop.configure(state="disabled")
 
+    def _stop_lever_training(self):
+        if self.exp:
+            self.exp.stop_lever_training()
+        self.btn_lev_stop.configure(state="disabled")
+
     def _stop(self):
         if self.exp:
             self.exp.stop()
         self.btn_start.configure(state="normal")
         self.btn_mag_stop.configure(state="disabled")
+        self.btn_lev_stop.configure(state="disabled")
         self.btn_stop.configure(state="disabled")
 
     # ── Simülasyon ────────────────────────────────────────────────────────────
@@ -691,14 +733,67 @@ class App(tk.Tk):
                 self.lbl_ds._var.set("DS−")
                 self.canvas_ds.itemconfig(self.ds_circle, fill="#ff1744")
 
+            if state == State.LEV_TRAINING:
+                self.btn_lev_stop.configure(state="normal")
+
             if state == State.SESSION_END:
                 self.btn_stop.configure(state="disabled")
-                if config.MAGAZINE_TRAINING_ONLY:
+                self.btn_lev_stop.configure(state="disabled")
+                if config.LEVER_TRAINING_ONLY:
+                    self._show_lever_end_dialog()
+                elif config.MAGAZINE_TRAINING_ONLY:
                     self._show_magazine_end_dialog()
                 else:
                     hr, cr, dp = self.exp.discrimination_metrics()
                     self._show_session_end_dialog(hr, cr, dp)
         self.after(0, _update)
+
+    def _show_lever_end_dialog(self):
+        import report as rpt
+        animal_id = self.exp.animal_id
+        lev_csv   = self.exp.lever_log_file
+        idx       = self._animal_index
+        total     = len(self._animal_queue)
+        has_next  = idx + 1 < total
+
+        xlsx_path = None
+        if lev_csv:
+            try:
+                xlsx_path = rpt.generate_lever_report(lev_csv)
+                logging.getLogger("App").info(f"Lever raporu: {xlsx_path}")
+            except Exception as e:
+                logging.getLogger("App").error(f"Lever raporu oluşturulamadı: {e}")
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Lever Training Tamamlandı")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        msg = (f"Hayvan: {animal_id}  ({idx + 1}/{total})\n\n"
+               f"Excel: {os.path.basename(xlsx_path) if xlsx_path else '—'}")
+        ttk.Label(dlg, text=msg, justify="left", padding=16).pack()
+
+        if xlsx_path:
+            ttk.Button(dlg, text="Excel'i Aç",
+                       command=lambda: os.startfile(xlsx_path)).pack(pady=(0, 4))
+
+        btn_frame = ttk.Frame(dlg); btn_frame.pack(pady=8)
+
+        if has_next:
+            next_id = self._animal_queue[idx + 1]
+            def _next():
+                dlg.destroy()
+                self._animal_index += 1
+                self._start_next_animal()
+            ttk.Button(btn_frame, text=f"Sonraki Hayvan: {next_id}  →",
+                       command=_next).pack(side="left", padx=8)
+
+        def _finish():
+            dlg.destroy()
+            self.btn_start.configure(state="normal")
+            self.lbl_animal_queue.config(
+                text="Tüm hayvanlar tamamlandı." if not has_next else "")
+        ttk.Button(btn_frame, text="Bitir", command=_finish).pack(side="left", padx=8)
 
     def _show_magazine_end_dialog(self):
         import report as rpt

@@ -556,6 +556,123 @@ def generate_magazine_report(csv_path: str) -> str:
     return excel_path
 
 
+# ── Lever Training Excel Raporu ──────────────────────────────────────────────
+
+def generate_lever_report(csv_path: str) -> str:
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    rows = []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            rows.append(row)
+    if not rows:
+        raise ValueError("Lever training CSV boş.")
+
+    total_presses  = len(rows)
+    total_licks    = int(rows[-1].get("cumulative_licks", 0) or 0)
+    avg_licks      = total_licks / total_presses if total_presses else 0
+    session_dur_s  = float(rows[-1].get("elapsed_s", 0) or 0)
+    animal_id      = rows[0].get("animal_id", "—")
+    session_id     = rows[0].get("session_id", "—")
+
+    try:
+        session_date = datetime.fromisoformat(rows[0].get("timestamp", "")).strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        session_date = "—"
+
+    C = {
+        "bg": "0F0F1A", "surface": "1A1A2E", "accent": "F59E0B",
+        "blue": "3B82F6", "text": "E2E8F0", "muted": "94A3B8",
+        "green_bg": "14532D", "green_fg": "4ADE80",
+        "red_bg": "450A0A", "red_fg": "F87171",
+        "warn_fg": "FBBF24", "header": "F59E0B",
+    }
+
+    thin   = Side(style="thin", color="2D2D4E")
+    brd    = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    def fill(h):  return PatternFill("solid", fgColor=h)
+    def fnt(h, bold=False, size=11):
+        return Font(color=h, bold=bold, size=size, name="Segoe UI")
+
+    def write(ws, row, col, val, bg=None, fg="E2E8F0", bold=False, size=11):
+        cell = ws.cell(row=row, column=col, value=val)
+        if bg: cell.fill = fill(bg)
+        cell.font = fnt(fg, bold=bold, size=size)
+        cell.border = brd
+        cell.alignment = center
+        return cell
+
+    wb = Workbook()
+
+    # ── Sayfa 1: Özet ─────────────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "Özet"
+    ws1.sheet_view.showGridLines = False
+    for col in range(1, 6):
+        ws1.column_dimensions[get_column_letter(col)].width = 24
+
+    ws1.merge_cells("A1:E1")
+    c = ws1.cell(row=1, column=1, value=f"LEVER TRAINING RAPORU — {animal_id}")
+    c.fill = fill(C["accent"]); c.font = Font(color="FFFFFF", bold=True, size=16, name="Segoe UI")
+    c.alignment = center; ws1.row_dimensions[1].height = 36
+
+    ws1.merge_cells("A2:E2")
+    c = ws1.cell(row=2, column=1,
+                 value=f"Tarih: {session_date}   |   Session: {session_id}   |   Süre: {session_dur_s/60:.1f} dk")
+    c.fill = fill(C["surface"]); c.font = fnt(C["muted"], size=10)
+    c.alignment = center; ws1.row_dimensions[2].height = 20
+
+    ws1.row_dimensions[3].height = 10
+
+    summary_headers = ["Toplam Basış", "Toplam Lick", "Ort. Lick / Basış", "Süre (dk)"]
+    summary_values  = [
+        (str(total_presses), C["text"]),
+        (str(total_licks),   C["green_fg"] if total_licks > 0 else C["red_fg"]),
+        (f"{avg_licks:.1f}", C["green_fg"] if avg_licks >= 1 else C["warn_fg"]),
+        (f"{session_dur_s/60:.1f}", C["text"]),
+    ]
+    for i, h in enumerate(summary_headers, 1):
+        write(ws1, 4, i, h, bg=C["blue"], fg="FFFFFF", bold=True, size=10)
+    ws1.row_dimensions[4].height = 22
+    for i, (val, fg) in enumerate(summary_values, 1):
+        write(ws1, 5, i, val, bg=C["surface"], fg=fg, bold=True, size=20)
+    ws1.row_dimensions[5].height = 44
+
+    # ── Sayfa 2: Basış Detayları ──────────────────────────────────────────────
+    ws2 = wb.create_sheet("Basış Detayları")
+    ws2.sheet_view.showGridLines = False
+
+    col_defs = [
+        ("Basış #",                10),
+        ("Zaman Damgası",          22),
+        ("Geçen Süre (s)",         16),
+        ("Lick (önceki basıştan)", 22),
+        ("Kümülatif Lick",         16),
+    ]
+    for i, (h, w) in enumerate(col_defs, 1):
+        ws2.column_dimensions[get_column_letter(i)].width = w
+        write(ws2, 1, i, h, bg=C["header"], fg="FFFFFF", bold=True, size=10)
+    ws2.row_dimensions[1].height = 24
+
+    for rx, r in enumerate(rows, 2):
+        lick_this = int(r.get("lick_count_since_prev_press", 0) or 0)
+        lick_fg   = C["green_fg"] if lick_this > 0 else C["red_fg"]
+        write(ws2, rx, 1, int(r.get("press_num", 0) or 0),         bg=C["surface"], fg=C["text"])
+        write(ws2, rx, 2, r.get("timestamp", ""),                   bg=C["surface"], fg=C["muted"])
+        write(ws2, rx, 3, float(r.get("elapsed_s", 0) or 0),       bg=C["surface"], fg=C["text"])
+        write(ws2, rx, 4, lick_this,                                bg=C["surface"], fg=lick_fg, bold=lick_this > 0)
+        write(ws2, rx, 5, int(r.get("cumulative_licks", 0) or 0),  bg=C["surface"], fg=C["text"])
+        ws2.row_dimensions[rx].height = 18
+
+    excel_path = csv_path.replace(".csv", "_rapor.xlsx")
+    wb.save(excel_path)
+    return excel_path
+
+
 # ── Her ikisini birden üret ────────────────────────────────────────────────────
 
 def generate_report(csv_path: str) -> tuple[str, str]:
