@@ -898,11 +898,10 @@ class App(tk.Tk):
         self.after(0, _update)
 
     def _on_lick_update(self, trial_licks: int, total_licks: int):
-        try:
+        def _update():
             self.lbl_lick_trial._var.set(str(trial_licks))
             self.lbl_lick_total._var.set(str(total_licks))
-        except Exception as e:
-            logging.getLogger("App").error(f"Lick UI güncelleme hatası: {e}")
+        self.after(0, _update)
 
     def _on_disc_update(self, hit_rate: float, cr_rate: float, d_prime: float):
         def _update():
@@ -913,11 +912,10 @@ class App(tk.Tk):
         self.after(0, _update)
 
     def _on_iti_press(self, trial_presses: int, total_presses: int):
-        try:
+        def _update():
             self.lbl_iti_trial._var.set(str(trial_presses))
             self.lbl_iti_total._var.set(str(total_presses))
-        except Exception as e:
-            logging.getLogger("App").error(f"ITI UI güncelleme hatası: {e}")
+        self.after(0, _update)
 
     # ── Donanım Testi ─────────────────────────────────────────────────────────
 

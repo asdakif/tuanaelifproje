@@ -78,6 +78,7 @@ class Experiment:
         self.lick_count          = 0
         self.total_licks         = 0
         self._counting_licks     = False
+        self._lick_window_end:   Optional[float] = None  # lick window bitiş zamanı
         self._mag_delivery_licks = 0   # magazine training: mevcut delivery başına lick
         self._lev_press_licks    = 0   # lever training: son basıştan bu yana lick
 
@@ -248,14 +249,16 @@ class Experiment:
         try:
             outcome = config.DS_PLUS_OUTCOME if ds == DSType.PLUS else config.DS_MINUS_OUTCOME
             if outcome == "reward":
-                self._counting_licks = True
+                self._counting_licks  = True
+                self._lick_window_end = time.time() + config.WATER_PULSES * config.WATER_PULSE_GAP_S + config.LICK_WINDOW_S
                 for _ in range(config.WATER_PULSES):
                     if self._stop_event.is_set():
                         break
                     self.box.water(config.WATER_SIDE)
                     self._stop_event.wait(config.WATER_PULSE_GAP_S)
                 self._stop_event.wait(config.LICK_WINDOW_S)
-                self._counting_licks = False
+                self._counting_licks  = False
+                self._lick_window_end = None
                 self.log.info(
                     f"Trial {self.trial_num} — Basış ödülü: su, lick: {self.lick_count}")
             else:
@@ -576,7 +579,6 @@ class Experiment:
         self.response_time_from_lever = None
         self.lick_count          = 0
         self.iti_presses         = 0
-        self._counting_licks     = False
         self._lever_extend_time  = None
         self._lever_event.clear()
         self._emit_state()
@@ -721,6 +723,14 @@ class Experiment:
                 result = TrialResult.CORRECT_REJECTION
                 self.stats["correct_rejection"] += 1
                 self.log.info(f"Trial {self.trial_num} → CORRECT REJECTION (DS− basılmadı ✓)")
+
+        # Lick window bitmeden önce log alma — hayvan su spout'una gidip lick yapıyor olabilir
+        lick_end = self._lick_window_end
+        if lick_end is not None:
+            remaining = lick_end - time.time()
+            if remaining > 0:
+                self._stop_event.wait(remaining)
+        self._counting_licks = False
 
         self._emit_trial(result, ds_type)
         self._emit_disc()
