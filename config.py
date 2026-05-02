@@ -9,6 +9,17 @@ CHANNEL           = 0x01    # Kutu kanal numarası (1-4)
 ANIMAL_ID = ""   # Her deney başında GUI'den girilir
 
 # ─── Deney Parametreleri ───────────────────────────────────────────────────────
+# ─── Magazine Training ────────────────────────────────────────────────────────
+# Deney başlamadan önce hayvanın su ödülünü öğrenmesi için otomatik su verme aşaması.
+# Bu aşamada lever basımı gerekmez; su belirli aralıklarla otomatik verilir.
+MAGAZINE_TRAINING_ENABLED       = False  # True = magazine training aşamasını çalıştır
+MAGAZINE_TRAINING_ONLY          = False  # True = magazine training sonrası trial çalıştırma
+MAGAZINE_TRAINING_ITI_MIN_S     = 60.0  # Su teslimleri arası minimum ITI (saniye)
+MAGAZINE_TRAINING_ITI_MAX_S     = 100.0 # Su teslimleri arası maksimum ITI (saniye)
+MAGAZINE_TRAINING_DURATION_S    = 2400.0  # Toplam training süresi (saniye, ~40 dk)
+MAGAZINE_TRAINING_WATER_PULSES  = 3     # Her teslimatta kaç damla su
+MAGAZINE_TRAINING_WATER_GAP_S   = 0.1   # Damlalar arası bekleme (saniye)
+
 BASELINE_DURATION_S = 0.0  # Deney başlamadan önceki baseline süresi (saniye, 0 = devre dışı)
 NUM_TRIALS        = 50     # Toplam trial sayısı
 DS_PLUS_RATIO     = 0.5    # DS+ trial oranı (0.5 = %50)

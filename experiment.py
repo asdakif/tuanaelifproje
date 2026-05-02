@@ -74,9 +74,10 @@ class Experiment:
         self._in_iti          = False
 
         # Lick
-        self.lick_count      = 0
-        self.total_licks     = 0
-        self._counting_licks = False
+        self.lick_count          = 0
+        self.total_licks         = 0
+        self._counting_licks     = False
+        self._mag_delivery_licks = 0   # magazine training: mevcut delivery başına lick
 
         # Avisoft DOUT onayı
         self._sound_confirmed  = False
@@ -97,6 +98,7 @@ class Experiment:
 
         # Thread kontrol
         self._stop_event    = threading.Event()
+        self._mag_stop_event = threading.Event()  # sadece magazine training'i bitirir
         self._lever_event   = threading.Event()
         self._main_thread: Optional[threading.Thread] = None
 
@@ -108,7 +110,8 @@ class Experiment:
         self._on_iti_press:    list[Callable] = []
 
         # Log
-        self._log_file:  Optional[str] = None
+        self._log_file:          Optional[str] = None
+        self.magazine_log_file:  Optional[str] = None
         self._csv_writer = None
         self._csv_file   = None
 
@@ -246,14 +249,17 @@ class Experiment:
 
     def _on_lick(self, side: str):
         if self._counting_licks:
-            self.lick_count  += 1
-            self.total_licks += 1
-            self.log.debug(f"Lick — trial: {self.lick_count}, toplam: {self.total_licks}")
+            self.lick_count          += 1
+            self.total_licks         += 1
+            self._mag_delivery_licks += 1
+            self.log.info(f"Lick — {side} | trial: {self.lick_count}, toplam: {self.total_licks}")
             for cb in self._on_lick_update:
                 try:
                     cb(self.lick_count, self.total_licks)
                 except Exception as e:
                     self.log.error(f"Lick callback: {e}")
+        else:
+            self.log.warning(f"Lick algılandı ama pencere kapalı (counting_licks=False) — {side}")
 
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
@@ -310,6 +316,7 @@ class Experiment:
         if self.state != State.IDLE:
             return
         self._stop_event.clear()
+        self._mag_stop_event.clear()
         self.animal_id         = animal_id or config.ANIMAL_ID
         self.trial_num         = 0
         self.total_licks       = 0
@@ -332,7 +339,13 @@ class Experiment:
         self._main_thread = threading.Thread(target=self._run, daemon=True)
         self._main_thread.start()
 
+    def stop_magazine_training(self):
+        """Sadece magazine training'i bitirir, trial döngüsüne geçilir."""
+        self._mag_stop_event.set()
+        self.log.info("Magazine training durduruldu — trial döngüsüne geçiliyor")
+
     def stop(self):
+        self._mag_stop_event.set()
         self._stop_event.set()
         self._lever_event.set()
         self._dout_event.set()
@@ -346,6 +359,79 @@ class Experiment:
         if self.avisoft_trigger:
             self.avisoft_trigger.start_recording()
             self.log.info("USV kaydi baslatildi")
+
+        # ── Magazine Training ─────────────────────────────────────────────────
+        if config.MAGAZINE_TRAINING_ENABLED:
+            self.state = State.ITI
+            self._emit_state()
+            r, g, b = config.HOUSE_LIGHT_COLOR
+            self.box.house_light(r, g, b)
+            dur_s = config.MAGAZINE_TRAINING_DURATION_S
+            self.log.info(
+                f"Magazine training başladı — ITI: {config.MAGAZINE_TRAINING_ITI_MIN_S}–"
+                f"{config.MAGAZINE_TRAINING_ITI_MAX_S}s, toplam süre: {dur_s}s"
+            )
+
+            mag_csv_file, mag_csv_writer = self._open_magazine_log()
+            mag_start = time.time()
+            self.lick_count          = 0
+            self._mag_delivery_licks = 0
+            self._counting_licks     = True   # lick penceresi training boyunca hep açık
+            i = 0
+
+            while not self._mag_stop_event.is_set():
+                if dur_s > 0 and time.time() - mag_start >= dur_s:
+                    break
+
+                i += 1
+                self._mag_delivery_licks = 0  # her delivery başında sıfırla
+
+                # Bu teslimattan sonraki deadline'ı şimdiden hesapla (jittered ITI)
+                iti = random.uniform(config.MAGAZINE_TRAINING_ITI_MIN_S,
+                                     config.MAGAZINE_TRAINING_ITI_MAX_S)
+                next_delivery_at = time.time() + iti
+                if dur_s > 0:
+                    next_delivery_at = min(next_delivery_at, mag_start + dur_s)
+
+                # Su ver
+                for _ in range(config.MAGAZINE_TRAINING_WATER_PULSES):
+                    if self._mag_stop_event.is_set():
+                        break
+                    self.box.water(config.WATER_SIDE)
+                    self._mag_stop_event.wait(config.MAGAZINE_TRAINING_WATER_GAP_S)
+
+                # Interval'in kalanını bekle
+                remaining = next_delivery_at - time.time()
+                if remaining > 0:
+                    self._mag_stop_event.wait(remaining)
+
+                lick_this = self._mag_delivery_licks
+                elapsed   = time.time() - mag_start
+                self.log.info(
+                    f"Magazine training — ödül {i} "
+                    f"(lick bu aralıkta: {lick_this}, toplam: {self.total_licks}, "
+                    f"geçen süre: {elapsed:.1f}s)"
+                )
+                if mag_csv_writer:
+                    mag_csv_writer.writerow([
+                        self.animal_id, self.session_id,
+                        i,
+                        datetime.now().isoformat(),
+                        f"{elapsed:.2f}",
+                        lick_this,
+                        self.total_licks,
+                    ])
+                    mag_csv_file.flush()
+
+            self._counting_licks = False
+            if mag_csv_file:
+                mag_csv_file.close()
+            if config.MAGAZINE_TRAINING_ONLY:
+                self.log.info("Magazine training tamamlandı — sadece magazine training modu, duruluyor")
+                self.state = State.SESSION_END
+                self._emit_state()
+                return
+            self.log.info("Magazine training tamamlandı — trial döngüsüne geçiliyor")
 
         # ── Baseline ──────────────────────────────────────────────────────────
         if config.BASELINE_DURATION_S > 0:
@@ -628,6 +714,31 @@ class Experiment:
         return playlist_path
 
     # ── CSV Log ───────────────────────────────────────────────────────────────
+
+    def _open_magazine_log(self):
+        """Magazine training için ayrı CSV dosyası aç. (file_handle, writer) döner."""
+        try:
+            os.makedirs(config.LOG_DIR, exist_ok=True)
+            path = os.path.join(
+                config.LOG_DIR,
+                f"magazine_{self.animal_id}_{self.session_id}.csv"
+            )
+            f = open(path, "w", newline="", encoding="utf-8")
+            w = csv.writer(f)
+            w.writerow([
+                "animal_id", "session_id",
+                "delivery_num",
+                "timestamp",
+                "elapsed_s",
+                "lick_count_this_interval",
+                "cumulative_licks",
+            ])
+            self.magazine_log_file = path
+            self.log.info(f"Magazine training log: {path}")
+            return f, w
+        except Exception as e:
+            self.log.error(f"Magazine log açılamadı: {e}")
+            return None, None
 
     def _open_log(self):
         os.makedirs(config.LOG_DIR, exist_ok=True)

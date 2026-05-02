@@ -133,6 +133,33 @@ class App(tk.Tk):
         self.btn_connect = ttk.Button(conn_frame, text="Bağlan", command=self._connect)
         self.btn_connect.grid(row=2, column=0, columnspan=2, pady=6)
 
+        # ── Magazine Training ─────────────
+        mag_frame = ttk.LabelFrame(left, text="Magazine Training")
+        mag_frame.pack(fill="x", pady=4)
+
+        self.var_mag_enabled = tk.BooleanVar(value=config.MAGAZINE_TRAINING_ENABLED)
+        ttk.Checkbutton(mag_frame, text="Magazine training aktif",
+                        variable=self.var_mag_enabled).grid(
+                            row=0, column=0, columnspan=2, sticky="w", **PAD)
+
+        self.var_mag_only = tk.BooleanVar(value=config.MAGAZINE_TRAINING_ONLY)
+        ttk.Checkbutton(mag_frame, text="Sadece magazine training (trial yok)",
+                        variable=self.var_mag_only).grid(
+                            row=1, column=0, columnspan=2, sticky="w", **PAD)
+
+        mag_params = [
+            ("ITI min (s):",         "var_mag_iti_min",      str(config.MAGAZINE_TRAINING_ITI_MIN_S)),
+            ("ITI max (s):",         "var_mag_iti_max",      str(config.MAGAZINE_TRAINING_ITI_MAX_S)),
+            ("Toplam süre (s):",     "var_mag_duration",     str(config.MAGAZINE_TRAINING_DURATION_S)),
+            ("Su damla sayısı:",     "var_mag_water_pulses", str(config.MAGAZINE_TRAINING_WATER_PULSES)),
+            ("Damla aralığı (s):",   "var_mag_water_gap",    str(config.MAGAZINE_TRAINING_WATER_GAP_S)),
+        ]
+        for i, (label, var_name, default) in enumerate(mag_params, start=2):
+            ttk.Label(mag_frame, text=label).grid(row=i, column=0, sticky="w", **PAD)
+            var = tk.StringVar(value=default)
+            setattr(self, var_name, var)
+            ttk.Entry(mag_frame, textvariable=var, width=8).grid(row=i, column=1, **PAD)
+
         # ── Deney Parametreleri ───────────
         param_frame = ttk.LabelFrame(left, text="Deney Parametreleri")
         param_frame.pack(fill="x", pady=4)
@@ -291,6 +318,10 @@ class App(tk.Tk):
         self.btn_start = ttk.Button(ctrl_frame, text="▶  Başlat", command=self._start, state="disabled")
         self.btn_start.pack(fill="x", padx=8, pady=2)
 
+        self.btn_mag_stop = ttk.Button(ctrl_frame, text="→  Trials'a Geç",
+                                       command=self._stop_magazine, state="disabled")
+        self.btn_mag_stop.pack(fill="x", padx=8, pady=2)
+
         self.btn_stop = ttk.Button(ctrl_frame, text="⏹  Durdur", command=self._stop, state="disabled")
         self.btn_stop.pack(fill="x", padx=8, pady=2)
 
@@ -440,6 +471,7 @@ class App(tk.Tk):
                                 datefmt="%H:%M:%S")
         handler = TextHandler(self.log_text)
         handler.setFormatter(fmt)
+        handler.setLevel(logging.INFO)   # UI'da sadece INFO ve üstü
         root_log = logging.getLogger()
         root_log.setLevel(logging.DEBUG)
         root_log.addHandler(handler)
@@ -530,6 +562,13 @@ class App(tk.Tk):
 
     def _apply_params(self) -> bool:
         try:
+            config.MAGAZINE_TRAINING_ENABLED      = self.var_mag_enabled.get()
+            config.MAGAZINE_TRAINING_ONLY         = self.var_mag_only.get()
+            config.MAGAZINE_TRAINING_ITI_MIN_S    = float(self.var_mag_iti_min.get())
+            config.MAGAZINE_TRAINING_ITI_MAX_S    = float(self.var_mag_iti_max.get())
+            config.MAGAZINE_TRAINING_DURATION_S   = float(self.var_mag_duration.get())
+            config.MAGAZINE_TRAINING_WATER_PULSES = int(self.var_mag_water_pulses.get())
+            config.MAGAZINE_TRAINING_WATER_GAP_S  = float(self.var_mag_water_gap.get())
             config.BASELINE_DURATION_S   = float(self.var_baseline_dur.get())
             config.NUM_TRIALS            = int(self.var_num_trials.get())
             config.DS_PLUS_RATIO         = float(self.var_ds_ratio.get())
@@ -592,16 +631,24 @@ class App(tk.Tk):
         )
         self.btn_start.configure(state="disabled")
         self.btn_stop.configure(state="normal")
+        if config.MAGAZINE_TRAINING_ENABLED:
+            self.btn_mag_stop.configure(state="normal")
         logging.getLogger("App").info(
             f"Hayvan {self._animal_index + 1}/{total}: {animal_id} başlıyor"
         )
         self.exp.start(self._max_consec, animal_id=animal_id,
                        use_existing_playlist=self.var_use_existing_playlist.get())
 
+    def _stop_magazine(self):
+        if self.exp:
+            self.exp.stop_magazine_training()
+        self.btn_mag_stop.configure(state="disabled")
+
     def _stop(self):
         if self.exp:
             self.exp.stop()
         self.btn_start.configure(state="normal")
+        self.btn_mag_stop.configure(state="disabled")
         self.btn_stop.configure(state="disabled")
 
     # ── Simülasyon ────────────────────────────────────────────────────────────
@@ -646,9 +693,59 @@ class App(tk.Tk):
 
             if state == State.SESSION_END:
                 self.btn_stop.configure(state="disabled")
-                hr, cr, dp = self.exp.discrimination_metrics()
-                self._show_session_end_dialog(hr, cr, dp)
+                if config.MAGAZINE_TRAINING_ONLY:
+                    self._show_magazine_end_dialog()
+                else:
+                    hr, cr, dp = self.exp.discrimination_metrics()
+                    self._show_session_end_dialog(hr, cr, dp)
         self.after(0, _update)
+
+    def _show_magazine_end_dialog(self):
+        import report as rpt
+        animal_id = self.exp.animal_id
+        mag_csv   = self.exp.magazine_log_file
+        idx       = self._animal_index
+        total     = len(self._animal_queue)
+        has_next  = idx + 1 < total
+
+        xlsx_path = None
+        if mag_csv:
+            try:
+                xlsx_path = rpt.generate_magazine_report(mag_csv)
+                logging.getLogger("App").info(f"Magazine raporu: {xlsx_path}")
+            except Exception as e:
+                logging.getLogger("App").error(f"Magazine raporu oluşturulamadı: {e}")
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Magazine Training Tamamlandı")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        msg = (f"Hayvan: {animal_id}  ({idx + 1}/{total})\n\n"
+               f"Excel: {os.path.basename(xlsx_path) if xlsx_path else '—'}")
+        ttk.Label(dlg, text=msg, justify="left", padding=16).pack()
+
+        if xlsx_path:
+            ttk.Button(dlg, text="Excel'i Aç",
+                       command=lambda: os.startfile(xlsx_path)).pack(pady=(0, 4))
+
+        btn_frame = ttk.Frame(dlg); btn_frame.pack(pady=8)
+
+        if has_next:
+            next_id = self._animal_queue[idx + 1]
+            def _next():
+                dlg.destroy()
+                self._animal_index += 1
+                self._start_next_animal()
+            ttk.Button(btn_frame, text=f"Sonraki Hayvan: {next_id}  →",
+                       command=_next).pack(side="left", padx=8)
+
+        def _finish():
+            dlg.destroy()
+            self.btn_start.configure(state="normal")
+            self.lbl_animal_queue.config(
+                text="Tüm hayvanlar tamamlandı." if not has_next else "")
+        ttk.Button(btn_frame, text="Bitir", command=_finish).pack(side="left", padx=8)
 
     def _show_session_end_dialog(self, hr, cr, dp):
         animal_id  = self.exp.animal_id
@@ -706,10 +803,11 @@ class App(tk.Tk):
         self.after(0, _update)
 
     def _on_lick_update(self, trial_licks: int, total_licks: int):
-        def _update():
+        try:
             self.lbl_lick_trial._var.set(str(trial_licks))
             self.lbl_lick_total._var.set(str(total_licks))
-        self.after(0, _update)
+        except Exception as e:
+            logging.getLogger("App").error(f"Lick UI güncelleme hatası: {e}")
 
     def _on_disc_update(self, hit_rate: float, cr_rate: float, d_prime: float):
         def _update():
@@ -720,10 +818,11 @@ class App(tk.Tk):
         self.after(0, _update)
 
     def _on_iti_press(self, trial_presses: int, total_presses: int):
-        def _update():
+        try:
             self.lbl_iti_trial._var.set(str(trial_presses))
             self.lbl_iti_total._var.set(str(total_presses))
-        self.after(0, _update)
+        except Exception as e:
+            logging.getLogger("App").error(f"ITI UI güncelleme hatası: {e}")
 
     # ── Donanım Testi ─────────────────────────────────────────────────────────
 
