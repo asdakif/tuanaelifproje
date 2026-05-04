@@ -121,10 +121,28 @@ class App(tk.Tk):
         self.cmb_group.grid(row=2, column=1, **PAD)
         self.cmb_group.bind("<<ComboboxSelected>>", self._on_group_change)
 
+        ttk.Label(sess_frame, text="Faz:").grid(row=3, column=0, sticky="w", **PAD)
+        self.var_phase = tk.StringVar(value=config.PHASE)
+        self.cmb_phase = ttk.Combobox(sess_frame, textvariable=self.var_phase,
+                                      values=["acquisition", "reversal"],
+                                      width=14, state="readonly")
+        self.cmb_phase.grid(row=3, column=1, **PAD)
+        self.cmb_phase.bind("<<ComboboxSelected>>", self._on_group_change)
+
+        ttk.Label(sess_frame, text="Playlist:").grid(row=4, column=0, sticky="w", **PAD)
+        self.var_playlist = tk.StringVar(value=config.AVISOFT_PLAYLIST)
+        ttk.Entry(sess_frame, textvariable=self.var_playlist, width=16).grid(row=4, column=1, **PAD)
+        ttk.Button(sess_frame, text="Gözat…", width=7,
+                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=4, column=2, **PAD)
+
+        self.lbl_playlist_status = ttk.Label(sess_frame, text="", foreground="#555555",
+                                              font=("Helvetica", 8, "italic"))
+        self.lbl_playlist_status.grid(row=5, column=0, columnspan=3, sticky="w", padx=8)
+
         ttk.Label(sess_frame, text="Avisoft DOUT\nport (opsiyonel):",
-                  justify="left").grid(row=3, column=0, sticky="w", **PAD)
+                  justify="left").grid(row=6, column=0, sticky="w", **PAD)
         self.var_dout_port = tk.StringVar(value=config.AVISOFT_DOUT_PORT)
-        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=3, column=1, **PAD)
+        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=6, column=1, **PAD)
 
         # ── Bağlantı ─────────────────────
         conn_frame = ttk.LabelFrame(left, text="Bağlantı Ayarları")
@@ -302,48 +320,42 @@ class App(tk.Tk):
                    command=lambda: self._clear_wavs(self._lb_ds_minus, self.ds_minus_wav_list)
                    ).pack(fill="x")
 
-        ttk.Label(av_frame, text="Playlist:").grid(row=6, column=0, sticky="w", **PAD)
-        self.var_playlist = tk.StringVar(value=config.AVISOFT_PLAYLIST)
-        ttk.Entry(av_frame, textvariable=self.var_playlist, width=26).grid(row=6, column=1, **PAD)
-        ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=6, column=2, **PAD)
-
-        ttk.Label(av_frame, text="Playback exe:").grid(row=7, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Playback exe:").grid(row=6, column=0, sticky="w", **PAD)
         self.var_avisoft_exe = tk.StringVar(value=config.AVISOFT_EXE)
-        ttk.Entry(av_frame, textvariable=self.var_avisoft_exe, width=26).grid(row=7, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_exe, width=26).grid(row=6, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_exe(self.var_avisoft_exe)).grid(row=7, column=2, **PAD)
+                   command=lambda: self._browse_exe(self.var_avisoft_exe)).grid(row=6, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Playback config:").grid(row=8, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Playback config:").grid(row=7, column=0, sticky="w", **PAD)
         self.var_playback_config = tk.StringVar(value=config.AVISOFT_PLAYBACK_CONFIG)
-        ttk.Entry(av_frame, textvariable=self.var_playback_config, width=26).grid(row=8, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_playback_config, width=26).grid(row=7, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_ini(self.var_playback_config)).grid(row=8, column=2, **PAD)
+                   command=lambda: self._browse_ini(self.var_playback_config)).grid(row=7, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Record exe:").grid(row=9, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Record exe:").grid(row=8, column=0, sticky="w", **PAD)
         self.var_record_exe = tk.StringVar(value=config.AVISOFT_RECORD_EXE)
-        ttk.Entry(av_frame, textvariable=self.var_record_exe, width=26).grid(row=9, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_record_exe, width=26).grid(row=8, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_exe(self.var_record_exe)).grid(row=9, column=2, **PAD)
+                   command=lambda: self._browse_exe(self.var_record_exe)).grid(row=8, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Record config:").grid(row=10, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Record config:").grid(row=9, column=0, sticky="w", **PAD)
         self.var_record_config = tk.StringVar(value=config.AVISOFT_RECORD_CONFIG)
-        ttk.Entry(av_frame, textvariable=self.var_record_config, width=26).grid(row=10, column=1, **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_record_config, width=26).grid(row=9, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_ini(self.var_record_config)).grid(row=10, column=2, **PAD)
+                   command=lambda: self._browse_ini(self.var_record_config)).grid(row=9, column=2, **PAD)
 
-        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=11, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="Açılış gecikmesi (s):").grid(row=10, column=0, sticky="w", **PAD)
         self.var_avisoft_delay = tk.StringVar(value=str(config.AVISOFT_LAUNCH_DELAY_S))
-        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=11, column=1, sticky="w", **PAD)
+        ttk.Entry(av_frame, textvariable=self.var_avisoft_delay, width=6).grid(row=10, column=1, sticky="w", **PAD)
 
         self.var_use_existing_playlist = tk.BooleanVar(value=False)
         ttk.Checkbutton(av_frame, text="Mevcut playlist kullan (yeniden oluşturma)",
                         variable=self.var_use_existing_playlist).grid(
-                            row=12, column=0, columnspan=3, sticky="w", **PAD)
+                            row=11, column=0, columnspan=3, sticky="w", **PAD)
 
         self.btn_gen_playlist = ttk.Button(av_frame, text="Playlist Oluştur",
                                            command=self._gen_playlist, state="disabled")
-        self.btn_gen_playlist.grid(row=13, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
+        self.btn_gen_playlist.grid(row=12, column=0, columnspan=3, sticky="ew", padx=8, pady=4)
 
         # ── Kontrol ──────────────────────
         ctrl_frame = ttk.LabelFrame(left, text="Kontrol")
@@ -362,6 +374,9 @@ class App(tk.Tk):
 
         self.btn_stop = ttk.Button(ctrl_frame, text="⏹  Durdur", command=self._stop, state="disabled")
         self.btn_stop.pack(fill="x", padx=8, pady=2)
+
+        ttk.Button(ctrl_frame, text="📋 Haftalık Playlist Üret",
+                   command=self._generate_playlists).pack(fill="x", padx=8, pady=2)
 
         ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
 
@@ -455,9 +470,9 @@ class App(tk.Tk):
         self.lbl_state = self._status_row(info_col, "Durum:",   "HAZIR",       0)
         self.lbl_trial = self._status_row(info_col, "Trial:",   "—",           1)
         self.lbl_ds    = self._status_row(info_col, "DS Tipi:", "—",           2)
-        self.lbl_group = self._status_row(info_col, "Grup:",    config.GROUP,  3)
-        self.lbl_mode  = self._status_row(info_col, "Mod:",     "Acquisition", 4)
-        self.lbl_shock = self._status_row(info_col, "Shock:",   "Aktif",       5)
+        self.lbl_group        = self._status_row(info_col, "Grup:",  config.GROUP,  3)
+        self.lbl_phase        = self._status_row(info_col, "Faz:",   config.PHASE,  4)
+        self.lbl_shock_status = self._status_row(info_col, "Shock:", "Aktif",       5)
 
         # ── Sonuç Tablosu ────────────────
         res_frame = ttk.LabelFrame(right, text="Trial Sonuçları")
@@ -545,28 +560,33 @@ class App(tk.Tk):
 
     def _on_group_change(self, event=None):
         group = self.var_group.get()
+        phase = self.var_phase.get()
         cfg = importlib.import_module(self._GROUP_MAP[group])
-        self.var_ds_plus_wav.set(cfg.DS_PLUS_WAV)
-        self.var_ds_minus_wav.set(cfg.DS_MINUS_WAV)
-        self.var_playlist.set(cfg.AVISOFT_PLAYLIST)
+        if phase == "acquisition":
+            self.var_ds_plus_wav.set(cfg.DS_PLUS_WAV)
+            self.var_ds_minus_wav.set(cfg.DS_MINUS_WAV)
+        else:  # reversal: swap WAVs
+            self.var_ds_plus_wav.set(cfg.DS_MINUS_WAV)
+            self.var_ds_minus_wav.set(cfg.DS_PLUS_WAV)
         config.GROUP = group
+        config.PHASE = phase
         self._update_mode_labels()
-        logging.getLogger("App").info(f"Grup seçildi: {group} — WAV/playlist güncellendi")
+        logging.getLogger("App").info(f"Grup/Faz: {group}/{phase} — WAV güncellendi")
 
     def _update_mode_labels(self):
         self.lbl_group._var.set(self.var_group.get())
         if self.exp:
-            self.lbl_mode._var.set("Reversal" if self.exp.reversal_mode else "Acquisition")
-            self.lbl_shock._var.set("Suspended" if self.exp.shock_suspended else "Aktif")
+            self.lbl_phase._var.set(self.exp.phase.capitalize())
+            self.lbl_shock_status._var.set("Suspended" if self.exp.shock_suspended else "Aktif")
         else:
-            self.lbl_mode._var.set("Acquisition")
-            self.lbl_shock._var.set("Aktif")
+            self.lbl_phase._var.set(self.var_phase.get().capitalize())
+            self.lbl_shock_status._var.set("Aktif")
 
     # ── Reversal kontrol ──────────────────────────────────────────────────────
 
     def _reversal_activate(self):
         if self.exp:
-            self.exp.reversal_mode   = True
+            self.exp.phase           = "reversal"
             self.exp.shock_suspended = True
             logging.getLogger("App").info("Reversal modu aktif — shock_suspended=True")
             self.after(0, self._update_mode_labels)
@@ -647,16 +667,26 @@ class App(tk.Tk):
         lb.delete(0, tk.END)
 
     def _browse_playlist(self, var: tk.StringVar):
-        path = filedialog.asksaveasfilename(
-            title="Playlist kayıt yeri",
-            defaultextension=".txt",
+        path = filedialog.askopenfilename(
+            title="Playlist dosyasını seç",
             filetypes=[("Metin dosyası", "*.txt"), ("Tüm dosyalar", "*.*")]
         )
         if path:
             var.set(path)
+            try:
+                with open(path, "r") as f:
+                    lines = [l.strip() for l in f if l.strip()]
+                self.lbl_playlist_status.config(
+                    text=f"✓ {len(lines)} trial yüklendi", foreground="#2e7d32")
+            except Exception as e:
+                self.lbl_playlist_status.config(
+                    text=f"Hata: {e}", foreground="#c62828")
 
     def _apply_params(self) -> bool:
         try:
+            config.GROUP = self.var_group.get()
+            config.PHASE = self.var_phase.get()
+            self._on_group_change()  # sync WAV vars for current group+phase
             config.MAGAZINE_TRAINING_ENABLED      = self.var_mag_enabled.get()
             config.MAGAZINE_TRAINING_ONLY         = self.var_mag_only.get()
             config.MAGAZINE_TRAINING_ITI_MIN_S    = float(self.var_mag_iti_min.get())
@@ -771,6 +801,15 @@ class App(tk.Tk):
             return
         path = self.exp.prepare_playlist(self._max_consec)
         messagebox.showinfo("Playlist Oluşturuldu", f"Playlist kaydedildi:\n{path}")
+
+    def _generate_playlists(self):
+        import generate_playlists
+        try:
+            generate_playlists.generate_all()
+            messagebox.showinfo("Playlist Üretici",
+                                f"Tüm playlist'ler üretildi.\nKlasör: {generate_playlists.OUTPUT_DIR}")
+        except Exception as e:
+            messagebox.showerror("Hata", str(e))
 
     def _sim_lever(self):
         if self.box: self.box.simulate_lever_press('left')
