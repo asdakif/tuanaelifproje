@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C tuanaelifproje diff experiment.py)"
+      "Bash(git -C tuanaelifproje diff experiment.py)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Skill(update-config)",
+      "Bash(git push *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git remote *)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(git pull *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git stash *)",
+      "Bash(git rebase *)",
+      "Bash(GIT_EDITOR=true git rebase --continue)",
+      "Bash(EDITOR=true git rebase --continue)",
+      "Bash(git -c core.editor=true rebase --continue)"
     ]
   }
 }

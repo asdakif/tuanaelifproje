@@ -31,10 +31,10 @@ LEVER_TRAINING_WATER_GAP_S   = 0.1   # Damlalar arası bekleme (saniye)
 BASELINE_DURATION_S = 0.0  # Deney başlamadan önceki baseline süresi (saniye, 0 = devre dışı)
 NUM_TRIALS        = 50     # Toplam trial sayısı
 DS_PLUS_RATIO     = 0.5    # DS+ trial oranı (0.5 = %50)
-ITI_MIN_S         = 5.0    # Minimum inter-trial interval (saniye)
-ITI_MAX_S         = 10.0   # Maksimum inter-trial interval (saniye)
+ITI_MIN_S         = 20.0   # Minimum inter-trial interval (saniye)
+ITI_MAX_S         = 30.0   # Maksimum inter-trial interval (saniye)
 DS_DURATION_S     = 10.0   # DS cue süresi (saniye)
-RESPONSE_WINDOW_S = 10.0   # Lever press bekleme süresi (saniye)
+RESPONSE_WINDOW_S = 5.0    # DS bittikten sonra ek yanıt süresi (saniye)
 SHOCK_DURATION_S  = 0.5    # Şok süresi (saniye)
 SHOCK_CURRENT_MA  = 0.2    # Şok akım şiddeti (mA) — 0.1 ile 0.4 arası
 
@@ -43,6 +43,21 @@ SHOCK_CURRENT_MA  = 0.2    # Şok akım şiddeti (mA) — 0.1 ile 0.4 arası
 # Seçenekler: "reward" (su) veya "punishment" (şok)
 DS_PLUS_OUTCOME  = "reward"       # DS+ + lever press → ödül
 DS_MINUS_OUTCOME = "punishment"   # DS− + lever press → ceza
+
+# ─── Graduated Punishment ─────────────────────────────────────────────────────
+# No-Go yanlış basışlarda şok uygulanma olasılığı.
+# Acquisition'da: 0.5 (50% şok / 50% timeout)
+# Reversal Day 1–2: experiment.py'den shock_suspended=True ile override edilir
+FA_SHOCK_PROBABILITY = 0.5          # 0.0 = hiç şok yok, 1.0 = her zaman şok, 0.5 = yarı yarıya
+
+# ─── Timeout (Blackout) ───────────────────────────────────────────────────────
+TIMEOUT_DURATION_S = 5.0            # Yanlış basış → timeout süresi (saniye)
+
+# ─── Grup Tanımı ─────────────────────────────────────────────────────────────
+# "congruent"   → 50kHz=DS+/reward, 22kHz=DS-/punishment  (innate valence ile uyumlu)
+# "incongruent" → 22kHz=DS+/reward, 50kHz=DS-/punishment  (innate valence'a ters)
+# "control"     → Nötr tone kullanır, valence yok
+GROUP = "congruent"                 # GUI'den set edilecek
 
 # ─── Su Ödülü ─────────────────────────────────────────────────────────────────
 WATER_SIDE        = 0x01   # 0x01 = sol, 0x02 = sağ

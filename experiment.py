@@ -87,6 +87,11 @@ class Experiment:
         self._sound_sync_misses = 0   # oturum geneli onaysız trial sayısı
         self._dout_event       = threading.Event()
 
+        # Reversal / şok kontrolü
+        self.reversal_mode       = False   # True olunca DS+/DS- rolleri değişir
+        self.shock_suspended     = False   # True = DS- yanlış basış → sadece timeout, şok yok
+        self.reversal_shock_prob = 1.0     # Reversal'da şok uygulama olasılığı (0.0–1.0)
+
         # İstatistikler
         self.stats = {
             "rewarded":          0,
@@ -347,9 +352,12 @@ class Experiment:
         self.trial_num         = 0
         self.total_licks       = 0
         self.total_iti_presses = 0
-        self._hit_count         = 0
-        self._fa_count          = 0
-        self._sound_sync_misses = 0
+        self._hit_count          = 0
+        self._fa_count           = 0
+        self._sound_sync_misses  = 0
+        self.reversal_mode       = False
+        self.shock_suspended     = False
+        self.reversal_shock_prob = 1.0
         self.stats = {
             "rewarded": 0, "punished": 0,
             "omission": 0, "correct_rejection": 0,
@@ -694,35 +702,59 @@ class Experiment:
         rt_lever = f"{self.response_time_from_lever:.3f}s" if self.response_time_from_lever else "—"
 
         if pressed and self.lever_pressed:
-            outcome = config.DS_PLUS_OUTCOME if ds_type == DSType.PLUS else config.DS_MINUS_OUTCOME
-            if outcome == "reward":
+            # Reversal modunda DS rolleri değişir
+            is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
+
+            if is_go_trial:
+                # Go trial — lever basış doğru → ödül
                 result = TrialResult.REWARDED
                 self.stats["rewarded"] += 1
-                self._hit_count += (1 if ds_type == DSType.PLUS else 0)
-                self._fa_count  += (1 if ds_type == DSType.MINUS else 0)
-                self.log.info(
-                    f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] "
-                    f"RT(DS)={rt_ds} RT(lever)={rt_lever}"
-                )
+                self._hit_count += 1
+                self.log.info(f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
+                self._counting_licks = True
+                for _ in range(config.WATER_PULSES):
+                    if self._stop_event.is_set():
+                        break
+                    self.box.water(config.WATER_SIDE)
+                    self._stop_event.wait(config.WATER_PULSE_GAP_S)
+                self._stop_event.wait(config.LICK_WINDOW_S)
+                self._counting_licks = False
+                self.log.info(f"Trial {self.trial_num} — Lick: {self.lick_count}")
             else:
-                result = TrialResult.PUNISHED
-                self.stats["punished"] += 1
-                self._hit_count += (1 if ds_type == DSType.PLUS else 0)
-                self._fa_count  += (1 if ds_type == DSType.MINUS else 0)
-                self.log.info(
-                    f"Trial {self.trial_num} → CEZA [{ds_type.value}] "
-                    f"RT(DS)={rt_ds} RT(lever)={rt_lever} "
-                    f"{config.SHOCK_CURRENT_MA}mA"
+                # No-Go trial — lever basış yanlış (False Alarm)
+                self._fa_count += 1
+                # shock_suspended=True ise hiç şok yok (reversal Day 1–2)
+                apply_shock = (
+                    not self.shock_suspended
+                    and random.random() < config.FA_SHOCK_PROBABILITY
                 )
+                if apply_shock:
+                    result = TrialResult.PUNISHED
+                    self.stats["punished"] += 1
+                    self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] {config.SHOCK_CURRENT_MA}mA")
+                    self.box.shock_current(config.SHOCK_CURRENT_MA)
+                    self.box.shock(True)
+                    self._stop_event.wait(config.SHOCK_DURATION_S)
+                    self.box.shock(False)
+                else:
+                    result = TrialResult.PUNISHED  # Timeout — basıldı ama ceza yok
+                    self.stats["punished"] += 1
+                    self.log.info(f"Trial {self.trial_num} → TIMEOUT [{ds_type.value}] (şok yok)")
+                    # Blackout: tüm ışıklar kapat, TIMEOUT_DURATION_S kadar bekle
+                    self.box.house_light_off()
+                    self.box.cue_light_off(config.LEVER_SIDE)
+                    self._stop_event.wait(config.TIMEOUT_DURATION_S)
         else:
-            if ds_type == DSType.PLUS:
-                result = TrialResult.OMISSION
-                self.stats["omission"] += 1
-                self.log.info(f"Trial {self.trial_num} → OMISSION (DS+ basılmadı)")
-            else:
+            is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
+
+            if not is_go_trial:
                 result = TrialResult.CORRECT_REJECTION
                 self.stats["correct_rejection"] += 1
-                self.log.info(f"Trial {self.trial_num} → CORRECT REJECTION (DS− basılmadı ✓)")
+                self.log.info(f"Trial {self.trial_num} → CORRECT REJECTION ✓")
+            else:
+                result = TrialResult.OMISSION
+                self.stats["omission"] += 1
+                self.log.info(f"Trial {self.trial_num} → OMISSION (Go trial basılmadı)")
 
         # Lick window bitmeden önce log alma — hayvan su spout'una gidip lick yapıyor olabilir
         lick_end = self._lick_window_end
@@ -882,6 +914,7 @@ class Experiment:
             "hit_rate", "cr_rate", "d_prime",
             "rewarded", "punished", "omission", "correct_rejection",
             "sound_confirmed", "criterion_reached", "wav_file",
+            "reversal_mode", "shock_suspended",
         ])
         self.log.info(f"Log: {self._log_file}")
 
@@ -910,5 +943,7 @@ class Experiment:
             int(self._sound_confirmed),
             int(hr >= config.CRITERION_HIT_RATE and dp >= config.CRITERION_DPRIME),
             wav,
+            int(self.reversal_mode),
+            int(self.shock_suspended),
         ])
         self._csv_file.flush()

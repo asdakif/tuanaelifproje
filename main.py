@@ -6,6 +6,7 @@ Boğaziçi Üniversitesi Davranışsal Nörobilim Laboratuvarı
 
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
+import importlib
 import logging
 import os
 import threading
@@ -112,10 +113,18 @@ class App(tk.Tk):
                                           font=("Helvetica", 9, "italic"))
         self.lbl_animal_queue.grid(row=1, column=0, columnspan=2, sticky="w", padx=8)
 
+        ttk.Label(sess_frame, text="Grup:").grid(row=2, column=0, sticky="w", **PAD)
+        self.var_group = tk.StringVar(value=config.GROUP)
+        self.cmb_group = ttk.Combobox(sess_frame, textvariable=self.var_group,
+                                      values=["congruent", "incongruent", "control"],
+                                      width=14, state="readonly")
+        self.cmb_group.grid(row=2, column=1, **PAD)
+        self.cmb_group.bind("<<ComboboxSelected>>", self._on_group_change)
+
         ttk.Label(sess_frame, text="Avisoft DOUT\nport (opsiyonel):",
-                  justify="left").grid(row=2, column=0, sticky="w", **PAD)
+                  justify="left").grid(row=3, column=0, sticky="w", **PAD)
         self.var_dout_port = tk.StringVar(value=config.AVISOFT_DOUT_PORT)
-        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=2, column=1, **PAD)
+        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=3, column=1, **PAD)
 
         # ── Bağlantı ─────────────────────
         conn_frame = ttk.LabelFrame(left, text="Bağlantı Ayarları")
@@ -354,6 +363,18 @@ class App(tk.Tk):
         self.btn_stop = ttk.Button(ctrl_frame, text="⏹  Durdur", command=self._stop, state="disabled")
         self.btn_stop.pack(fill="x", padx=8, pady=2)
 
+        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
+
+        self.btn_reversal = ttk.Button(ctrl_frame, text="Reversal Moduna Geç",
+                                       command=self._reversal_activate, state="disabled")
+        self.btn_reversal.pack(fill="x", padx=8, pady=2)
+
+        self.btn_punishment_on = ttk.Button(ctrl_frame, text="Punishment Yeniden Aktif",
+                                            command=self._punishment_reactivate, state="disabled")
+        self.btn_punishment_on.pack(fill="x", padx=8, pady=2)
+
+        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
+
         ttk.Button(ctrl_frame, text="Rapor Oluştur", command=self._generate_report).pack(fill="x", padx=8, pady=2)
 
         # ── Simülasyon ───────────────────
@@ -431,9 +452,12 @@ class App(tk.Tk):
 
         info_col = ttk.Frame(ind_frame)
         info_col.pack(side="left", fill="x", expand=True)
-        self.lbl_state = self._status_row(info_col, "Durum:",   "HAZIR", 0)
-        self.lbl_trial = self._status_row(info_col, "Trial:",   "—",     1)
-        self.lbl_ds    = self._status_row(info_col, "DS Tipi:", "—",     2)
+        self.lbl_state = self._status_row(info_col, "Durum:",   "HAZIR",       0)
+        self.lbl_trial = self._status_row(info_col, "Trial:",   "—",           1)
+        self.lbl_ds    = self._status_row(info_col, "DS Tipi:", "—",           2)
+        self.lbl_group = self._status_row(info_col, "Grup:",    config.GROUP,  3)
+        self.lbl_mode  = self._status_row(info_col, "Mod:",     "Acquisition", 4)
+        self.lbl_shock = self._status_row(info_col, "Shock:",   "Aktif",       5)
 
         # ── Sonuç Tablosu ────────────────
         res_frame = ttk.LabelFrame(right, text="Trial Sonuçları")
@@ -510,6 +534,48 @@ class App(tk.Tk):
             encoding="utf-8")
         fh.setFormatter(fmt)
         root_log.addHandler(fh)
+
+    # ── Grup seçimi ───────────────────────────────────────────────────────────
+
+    _GROUP_MAP = {
+        "congruent":   "config_congruent",
+        "incongruent": "config_incongruent",
+        "control":     "config_control",
+    }
+
+    def _on_group_change(self, event=None):
+        group = self.var_group.get()
+        cfg = importlib.import_module(self._GROUP_MAP[group])
+        self.var_ds_plus_wav.set(cfg.DS_PLUS_WAV)
+        self.var_ds_minus_wav.set(cfg.DS_MINUS_WAV)
+        self.var_playlist.set(cfg.AVISOFT_PLAYLIST)
+        config.GROUP = group
+        self._update_mode_labels()
+        logging.getLogger("App").info(f"Grup seçildi: {group} — WAV/playlist güncellendi")
+
+    def _update_mode_labels(self):
+        self.lbl_group._var.set(self.var_group.get())
+        if self.exp:
+            self.lbl_mode._var.set("Reversal" if self.exp.reversal_mode else "Acquisition")
+            self.lbl_shock._var.set("Suspended" if self.exp.shock_suspended else "Aktif")
+        else:
+            self.lbl_mode._var.set("Acquisition")
+            self.lbl_shock._var.set("Aktif")
+
+    # ── Reversal kontrol ──────────────────────────────────────────────────────
+
+    def _reversal_activate(self):
+        if self.exp:
+            self.exp.reversal_mode   = True
+            self.exp.shock_suspended = True
+            logging.getLogger("App").info("Reversal modu aktif — shock_suspended=True")
+            self.after(0, self._update_mode_labels)
+
+    def _punishment_reactivate(self):
+        if self.exp:
+            self.exp.shock_suspended = False
+            logging.getLogger("App").info("Punishment yeniden aktif — shock_suspended=False")
+            self.after(0, self._update_mode_labels)
 
     # ── Bağlantı ──────────────────────────────────────────────────────────────
 
@@ -669,11 +735,14 @@ class App(tk.Tk):
             self.btn_mag_stop.configure(state="normal")
         if config.LEVER_TRAINING_ENABLED:
             self.btn_lev_stop.configure(state="normal")
+        self.btn_reversal.configure(state="normal")
+        self.btn_punishment_on.configure(state="normal")
         logging.getLogger("App").info(
             f"Hayvan {self._animal_index + 1}/{total}: {animal_id} başlıyor"
         )
         self.exp.start(self._max_consec, animal_id=animal_id,
                        use_existing_playlist=self.var_use_existing_playlist.get())
+        self._update_mode_labels()
 
     def _stop_magazine(self):
         if self.exp:
@@ -692,6 +761,8 @@ class App(tk.Tk):
         self.btn_mag_stop.configure(state="disabled")
         self.btn_lev_stop.configure(state="disabled")
         self.btn_stop.configure(state="disabled")
+        self.btn_reversal.configure(state="disabled")
+        self.btn_punishment_on.configure(state="disabled")
 
     # ── Simülasyon ────────────────────────────────────────────────────────────
 
@@ -739,6 +810,9 @@ class App(tk.Tk):
             if state == State.SESSION_END:
                 self.btn_stop.configure(state="disabled")
                 self.btn_lev_stop.configure(state="disabled")
+                self.btn_reversal.configure(state="disabled")
+                self.btn_punishment_on.configure(state="disabled")
+                self._update_mode_labels()
                 if config.LEVER_TRAINING_ONLY:
                     self._show_lever_end_dialog()
                 elif config.MAGAZINE_TRAINING_ONLY:
