@@ -86,10 +86,5 @@ def generate_all():
                 wavs.get("ds_minus_wav_list"),
             )
             path  = os.path.join(group_dir, f"playlist_gun{day}.txt")
-            # Dummy zıt DS tipinden seçilir — aynı dosya adı üst üste gelirse
-            # Avisoft tekrar çalmayabilir.
-            plus_pool  = wavs["ds_plus_wav_list"]  if wavs["ds_plus_wav_list"]  else [wavs["ds_plus_wav"]]
-            minus_pool = wavs["ds_minus_wav_list"] if wavs["ds_minus_wav_list"] else [wavs["ds_minus_wav"]]
-            dummy = random.choice(minus_pool) if seq[0] == "DS+" else random.choice(plus_pool)
             with open(path, "w", encoding="utf-8") as f:
-                f.write("\n".join([dummy] + lines))
+                f.write("\n".join(lines))

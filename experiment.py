@@ -785,11 +785,6 @@ class Experiment:
         with open(playlist_path, "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
 
-        # İlk satır dummy — atla (generate_avisoft_playlist ve generate_playlists.py
-        # her zaman dummy ilk satırla üretir)
-        if len(lines) > 1:
-            lines = lines[1:]
-
         self.trial_sequence = []
         self.trial_wav_files = lines[:]
 
@@ -879,21 +874,13 @@ class Experiment:
         if parent:
             os.makedirs(parent, exist_ok=True)
 
-        # Avisoft playlist yüklenince 2. satırı "hazır" gösterir (ilk trigger
-        # gerçekte 2. DS'i çalar). Başa dummy satır ekleyerek bu 1-offset'i dengele.
-        # Dummy, ilk trial ile AYNI dosya olmamalı — Avisoft aynı adı üst üste
-        # görünce tekrar çalmayabilir. Zıt DS tipini kullan.
-        if self.trial_sequence and self.trial_sequence[0] == DSType.PLUS:
-            dummy = _rnd.choice(config.DS_MINUS_WAV_LIST) if config.DS_MINUS_WAV_LIST else config.DS_MINUS_WAV
-        else:
-            dummy = _rnd.choice(config.DS_PLUS_WAV_LIST) if config.DS_PLUS_WAV_LIST else config.DS_PLUS_WAV
         with open(playlist_path, "w", encoding="utf-8") as f:
-            f.write("\n".join([dummy] + lines))
+            f.write("\n".join(lines))
 
         from collections import Counter
         counts = Counter(lines)
         count_str = ", ".join(f"{os.path.basename(k)}:{v}" for k, v in counts.items())
-        self.log.info(f"Playlist: {playlist_path} ({len(lines)} ses + 1 dummy, {count_str})")
+        self.log.info(f"Playlist: {playlist_path} ({len(lines)} ses, {count_str})")
         return playlist_path
 
     # ── CSV Log ───────────────────────────────────────────────────────────────
