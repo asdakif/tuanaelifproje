@@ -43,14 +43,15 @@ class OperantBox:
     LEVER_RIGHT   = 0x02
 
     def __init__(self, port: str, channel: int = 0x01, simulated: bool = False):
-        self.port      = port
-        self.channel   = channel
-        self.simulated = simulated
-        self._serial   = None
-        self._running  = False
-        self._thread   = None
-        self._buffer   = bytearray()
+        self.port       = port
+        self.channel    = channel
+        self.simulated  = simulated
+        self._serial    = None
+        self._running   = False
+        self._thread    = None
+        self._buffer    = bytearray()
         self._callbacks: dict[str, list[Callable]] = {}
+        self._write_lock = threading.Lock()  # eş zamanlı yazma çakışmasını önler
         self.log = logging.getLogger("OperantBox")
 
     # ── Bağlantı ──────────────────────────────────────────────────────────────
@@ -187,15 +188,27 @@ class OperantBox:
         self.log.debug(f"TX: {data.hex()}")
         if self.simulated:
             return
-        if self._serial and self._serial.is_open:
-            try:
-                self._serial.write(data)
-            except serial.SerialTimeoutException:
-                self.log.error("Serial yazma timeout — donanım yanıt vermiyor")
-            except serial.SerialException as e:
-                self.log.error(f"Serial yazma hatası: {e}")
-        else:
+        if not (self._serial and self._serial.is_open):
             self.log.warning("Seri port kapalı, paket gönderilemedi")
+            return
+        with self._write_lock:
+            for attempt in range(3):
+                try:
+                    self._serial.write(data)
+                    self._serial.flush()
+                    return
+                except serial.SerialTimeoutException:
+                    self.log.error("Serial yazma timeout — donanım yanıt vermiyor")
+                    return
+                except (serial.SerialException, PermissionError) as e:
+                    self.log.warning(f"Serial yazma hatası (deneme {attempt+1}/3): {e}")
+                    if attempt < 2:
+                        try:
+                            self._serial.reset_output_buffer()
+                        except Exception:
+                            pass
+                        time.sleep(0.05)
+            self.log.error("Serial yazma 3 denemede başarısız")
 
     def _packet(self, *data_bytes) -> bytes:
         return bytes([self.START1, self.START2, self.channel] + list(data_bytes) + [self.END1, self.END2])

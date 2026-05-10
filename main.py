@@ -144,6 +144,29 @@ class App(tk.Tk):
         self.var_dout_port = tk.StringVar(value=config.AVISOFT_DOUT_PORT)
         ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=6, column=1, **PAD)
 
+        # ── Playlist Seçici ──────────────
+        pl_sel_frame = ttk.LabelFrame(left, text="Playlist Seçici")
+        pl_sel_frame.pack(fill="x", pady=4)
+
+        ttk.Label(pl_sel_frame, text="Klasör:").grid(row=0, column=0, sticky="w", **PAD)
+        self.var_pl_folder = tk.StringVar(value="")
+        ttk.Entry(pl_sel_frame, textvariable=self.var_pl_folder, width=20).grid(row=0, column=1, **PAD)
+        ttk.Button(pl_sel_frame, text="Seç…", width=5,
+                   command=self._browse_pl_folder).grid(row=0, column=2, **PAD)
+
+        ttk.Label(pl_sel_frame, text="Playlist:").grid(row=1, column=0, sticky="w", **PAD)
+        self.var_pl_select = tk.StringVar()
+        self.cmb_pl_select = ttk.Combobox(pl_sel_frame, textvariable=self.var_pl_select,
+                                           width=20, state="readonly")
+        self.cmb_pl_select.grid(row=1, column=1, **PAD)
+        self.cmb_pl_select.bind("<<ComboboxSelected>>", self._on_pl_select)
+        ttk.Button(pl_sel_frame, text="↺", width=3,
+                   command=self._refresh_pl_list).grid(row=1, column=2, **PAD)
+
+        self.lbl_pl_sel_status = ttk.Label(pl_sel_frame, text="",
+                                            foreground="#555555", font=("Helvetica", 8, "italic"))
+        self.lbl_pl_sel_status.grid(row=2, column=0, columnspan=3, sticky="w", padx=8)
+
         # ── Bağlantı ─────────────────────
         conn_frame = ttk.LabelFrame(left, text="Bağlantı Ayarları")
         conn_frame.pack(fill="x", pady=4)
@@ -219,7 +242,7 @@ class App(tk.Tk):
         params = [
             ("Baseline süresi (s):", "var_baseline_dur",  str(config.BASELINE_DURATION_S)),
             ("Trial sayısı:",        "var_num_trials",   str(config.NUM_TRIALS)),
-            ("DS+ oranı (0-1):",     "var_ds_ratio",     str(config.DS_PLUS_RATIO)),
+            ("50kHz oranı (0-1):",   "var_ds_ratio",     str(config.DS_PLUS_RATIO)),
             ("ITI min (s):",         "var_iti_min",       str(config.ITI_MIN_S)),
             ("ITI max (s):",         "var_iti_max",       str(config.ITI_MAX_S)),
             ("DS süresi (s):",       "var_ds_dur",        str(config.DS_DURATION_S)),
@@ -228,8 +251,8 @@ class App(tk.Tk):
             ("Şok akımı (mA):",      "var_shock_ma",      str(config.SHOCK_CURRENT_MA)),
             ("Su pulse sayısı:",     "var_water_pulses",  str(config.WATER_PULSES)),
             ("Lick penceresi (s):",  "var_lick_window",   str(config.LICK_WINDOW_S)),
-            ("DS+ TTL (ms):",        "var_ttl_plus_dur",  str(config.BNC_DS_PLUS_DURATION)),
-            ("DS− TTL (ms):",        "var_ttl_minus_dur", str(config.BNC_DS_MINUS_DURATION)),
+            ("50kHz TTL (ms):",      "var_ttl_plus_dur",  str(config.BNC_DS_PLUS_DURATION)),
+            ("22kHz TTL (ms):",      "var_ttl_minus_dur", str(config.BNC_DS_MINUS_DURATION)),
             ("TTL voltaj (V):",      "var_ttl_voltage",   str(config.BNC_DS_PLUS_VOLTAGE)),
             ("Max üst üste:",        "var_max_consec",        "3"),
             ("Kriter Hit Rate:",     "var_criterion_hit",     str(config.CRITERION_HIT_RATE)),
@@ -263,28 +286,28 @@ class App(tk.Tk):
         out_frame = ttk.LabelFrame(left, text="Outcome Ayarları")
         out_frame.pack(fill="x", pady=4)
 
-        ttk.Label(out_frame, text="DS+ outcome:").grid(row=0, column=0, sticky="w", **PAD)
+        ttk.Label(out_frame, text="50kHz outcome:").grid(row=0, column=0, sticky="w", **PAD)
         self.var_ds_plus_outcome = tk.StringVar(value=config.DS_PLUS_OUTCOME)
         ttk.Combobox(out_frame, textvariable=self.var_ds_plus_outcome,
-                     values=["reward", "punishment"], width=12, state="readonly").grid(row=0, column=1, **PAD)
+                     values=["reward", "punishment", "no_shock"], width=12, state="readonly").grid(row=0, column=1, **PAD)
 
-        ttk.Label(out_frame, text="DS− outcome:").grid(row=1, column=0, sticky="w", **PAD)
+        ttk.Label(out_frame, text="22kHz outcome:").grid(row=1, column=0, sticky="w", **PAD)
         self.var_ds_minus_outcome = tk.StringVar(value=config.DS_MINUS_OUTCOME)
         ttk.Combobox(out_frame, textvariable=self.var_ds_minus_outcome,
-                     values=["reward", "punishment"], width=12, state="readonly").grid(row=1, column=1, **PAD)
+                     values=["reward", "punishment", "no_shock"], width=12, state="readonly").grid(row=1, column=1, **PAD)
 
 
         # ── Avisoft Playlist ──────────────
         av_frame = ttk.LabelFrame(left, text="Avisoft Playlist")
         av_frame.pack(fill="x", pady=4)
 
-        ttk.Label(av_frame, text="DS+ .wav:").grid(row=0, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="50kHz .wav:").grid(row=0, column=0, sticky="w", **PAD)
         self.var_ds_plus_wav = tk.StringVar(value=config.DS_PLUS_WAV)
         ttk.Entry(av_frame, textvariable=self.var_ds_plus_wav, width=26).grid(row=0, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_wav(self.var_ds_plus_wav)).grid(row=0, column=2, **PAD)
 
-        ttk.Label(av_frame, text="DS+ .wav dosyaları:").grid(row=1, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="50kHz .wav dosyaları:").grid(row=1, column=0, sticky="w", **PAD)
         self.ds_plus_wav_list: list[str] = list(config.DS_PLUS_WAV_LIST)
         self._lb_ds_plus = tk.Listbox(av_frame, height=4, width=30)
         self._lb_ds_plus.grid(row=2, column=0, columnspan=2, sticky="ew", **PAD)
@@ -299,13 +322,13 @@ class App(tk.Tk):
                    command=lambda: self._clear_wavs(self._lb_ds_plus, self.ds_plus_wav_list)
                    ).pack(fill="x")
 
-        ttk.Label(av_frame, text="DS− .wav:").grid(row=3, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="22kHz .wav:").grid(row=3, column=0, sticky="w", **PAD)
         self.var_ds_minus_wav = tk.StringVar(value=config.DS_MINUS_WAV)
         ttk.Entry(av_frame, textvariable=self.var_ds_minus_wav, width=26).grid(row=3, column=1, **PAD)
         ttk.Button(av_frame, text="Gözat…", width=7,
                    command=lambda: self._browse_wav(self.var_ds_minus_wav)).grid(row=3, column=2, **PAD)
 
-        ttk.Label(av_frame, text="DS− .wav dosyaları:").grid(row=4, column=0, sticky="w", **PAD)
+        ttk.Label(av_frame, text="22kHz .wav dosyaları:").grid(row=4, column=0, sticky="w", **PAD)
         self.ds_minus_wav_list: list[str] = list(config.DS_MINUS_WAV_LIST)
         self._lb_ds_minus = tk.Listbox(av_frame, height=4, width=30)
         self._lb_ds_minus.grid(row=5, column=0, columnspan=2, sticky="ew", **PAD)
@@ -478,17 +501,17 @@ class App(tk.Tk):
         res_frame = ttk.LabelFrame(right, text="Trial Sonuçları")
         res_frame.pack(fill="x", pady=4)
 
-        self.lbl_reward  = self._status_row(res_frame, "Ödül (rewarded):",      "0", 0)
-        self.lbl_punish  = self._status_row(res_frame, "Ceza (punished):",      "0", 1)
-        self.lbl_omit    = self._status_row(res_frame, "Omission (DS+↓):",      "0", 2)
-        self.lbl_cr      = self._status_row(res_frame, "Correct Rej. (DS−↓):", "0", 3)
+        self.lbl_reward  = self._status_row(res_frame, "Ödül (rewarded):",        "0", 0)
+        self.lbl_punish  = self._status_row(res_frame, "Ceza (punished):",        "0", 1)
+        self.lbl_omit    = self._status_row(res_frame, "Omission (50kHz↓):",      "0", 2)
+        self.lbl_cr      = self._status_row(res_frame, "Correct Rej. (22kHz↓):", "0", 3)
 
         # ── Diskriminasyon Metrikleri ─────
         disc_frame = ttk.LabelFrame(right, text="Diskriminasyon (canlı)")
         disc_frame.pack(fill="x", pady=4)
 
-        self.lbl_hit_rate = self._status_row(disc_frame, "Hit Rate (DS+):",  "—", 0)
-        self.lbl_cr_rate  = self._status_row(disc_frame, "CR Rate (DS−):",   "—", 1)
+        self.lbl_hit_rate = self._status_row(disc_frame, "Hit Rate (50kHz):", "—", 0)
+        self.lbl_cr_rate  = self._status_row(disc_frame, "CR Rate (22kHz):",  "—", 1)
         self.lbl_dprime   = self._status_row(disc_frame, "d' (d-prime):",    "—", 2)
 
         # Progress bar d'
@@ -628,6 +651,40 @@ class App(tk.Tk):
         logging.getLogger("App").info("Bağlantı kuruldu.")
 
     # ── Parametreler & Başlat ──────────────────────────────────────────────────
+
+    def _browse_pl_folder(self):
+        folder = filedialog.askdirectory(title="Playlist klasörünü seç")
+        if folder:
+            self.var_pl_folder.set(folder)
+            self._refresh_pl_list()
+
+    def _refresh_pl_list(self):
+        folder = self.var_pl_folder.get()
+        if not folder or not os.path.isdir(folder):
+            return
+        files = sorted(f for f in os.listdir(folder) if f.lower().endswith(".txt"))
+        self.cmb_pl_select["values"] = files
+        if files:
+            self.cmb_pl_select.current(0)
+            self._on_pl_select()
+
+    def _on_pl_select(self, event=None):
+        folder = self.var_pl_folder.get()
+        fname  = self.var_pl_select.get()
+        if not folder or not fname:
+            return
+        path = os.path.join(folder, fname)
+        self.var_playlist.set(path)
+        self.var_use_existing_playlist.set(True)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                lines = [l.strip() for l in f if l.strip()]
+            self.lbl_pl_sel_status.config(
+                text=f"✓ {len(lines)} trial — {fname}", foreground="#2e7d32")
+            self.lbl_playlist_status.config(
+                text=f"✓ {len(lines)} trial yüklendi", foreground="#2e7d32")
+        except Exception as e:
+            self.lbl_pl_sel_status.config(text=f"Hata: {e}", foreground="#c62828")
 
     def _browse_exe(self, var: tk.StringVar):
         path = filedialog.askopenfilename(
@@ -837,10 +894,10 @@ class App(tk.Tk):
                 self.lbl_ds._var.set("—")
                 self.canvas_ds.itemconfig(self.ds_circle, fill="gray")
             elif ds == DSType.PLUS:
-                self.lbl_ds._var.set("DS+")
+                self.lbl_ds._var.set("50kHz")
                 self.canvas_ds.itemconfig(self.ds_circle, fill="#00e676")
             else:
-                self.lbl_ds._var.set("DS−")
+                self.lbl_ds._var.set("22kHz")
                 self.canvas_ds.itemconfig(self.ds_circle, fill="#ff1744")
 
             if state == State.LEV_TRAINING:

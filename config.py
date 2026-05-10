@@ -58,6 +58,7 @@ TIMEOUT_DURATION_S = 5.0            # Yanlış basış → timeout süresi (sani
 # "incongruent" → 22kHz=DS+/reward, 50kHz=DS-/punishment  (innate valence'a ters)
 # "control"     → Nötr tone kullanır, valence yok
 GROUP = "congruent"                 # GUI'den set edilecek
+PHASE = "acquisition"               # GUI'den set edilecek ("acquisition" veya "reversal")
 
 # ─── Su Ödülü ─────────────────────────────────────────────────────────────────
 WATER_SIDE        = 0x01   # 0x01 = sol, 0x02 = sağ

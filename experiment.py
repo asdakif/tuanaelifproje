@@ -29,8 +29,8 @@ class State(Enum):
 
 
 class DSType(Enum):
-    PLUS  = "DS+"
-    MINUS = "DS-"
+    PLUS  = "50kHz"
+    MINUS = "22kHz"
 
 
 class TrialResult(Enum):
@@ -88,6 +88,7 @@ class Experiment:
         self._dout_event       = threading.Event()
 
         # Reversal / şok kontrolü
+        self.phase               = "acquisition"  # "acquisition" veya "reversal"
         self.reversal_mode       = False   # True olunca DS+/DS- rolleri değişir
         self.shock_suspended     = False   # True = DS- yanlış basış → sadece timeout, şok yok
         self.reversal_shock_prob = 1.0     # Reversal'da şok uygulama olasılığı (0.0–1.0)
@@ -266,6 +267,8 @@ class Experiment:
                 self._lick_window_end = None
                 self.log.info(
                     f"Trial {self.trial_num} — Basış ödülü: su, lick: {self.lick_count}")
+            elif outcome == "no_shock":
+                self.log.info(f"Trial {self.trial_num} — Basış: no-shock (DS−, anlık sonuç yok)")
             else:
                 self.box.shock_current(config.SHOCK_CURRENT_MA)
                 self.box.shock(True)
@@ -623,8 +626,6 @@ class Experiment:
         else:
             self.box.bnc_ttl(config.BNC_DS_MINUS_VOLTAGE, config.BNC_DS_MINUS_DURATION)
 
-        self.box.house_light_off()
-
         # Avisoft DOUT onayı (opsiyonel)
         self._sound_confirmed = True  # DOUT yoksa onaylı say
         if config.AVISOFT_DOUT_PORT:
@@ -706,26 +707,30 @@ class Experiment:
             is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
 
             if is_go_trial:
-                # Go trial — lever basış doğru → ödül
                 result = TrialResult.REWARDED
                 self.stats["rewarded"] += 1
                 self._hit_count += 1
-                self.log.info(f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
-                self._counting_licks = True
-                for _ in range(config.WATER_PULSES):
-                    if self._stop_event.is_set():
-                        break
-                    self.box.water(config.WATER_SIDE)
-                    self._stop_event.wait(config.WATER_PULSE_GAP_S)
-                self._stop_event.wait(config.LICK_WINDOW_S)
-                self._counting_licks = False
-                self.log.info(f"Trial {self.trial_num} — Lick: {self.lick_count}")
+                if config.DS_PLUS_OUTCOME == "no_shock":
+                    self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}] (ceza/ödül yok) RT(DS)={rt_ds}")
+                else:
+                    # Go trial — lever basış doğru → ödül
+                    self.log.info(f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
+                    self._counting_licks = True
+                    for _ in range(config.WATER_PULSES):
+                        if self._stop_event.is_set():
+                            break
+                        self.box.water(config.WATER_SIDE)
+                        self._stop_event.wait(config.WATER_PULSE_GAP_S)
+                    self._stop_event.wait(config.LICK_WINDOW_S)
+                    self._counting_licks = False
+                    self.log.info(f"Trial {self.trial_num} — Lick: {self.lick_count}")
             else:
                 # No-Go trial — lever basış yanlış (False Alarm)
                 self._fa_count += 1
-                # shock_suspended=True ise hiç şok yok (reversal Day 1–2)
+                # shock_suspended=True veya DS_MINUS_OUTCOME=="no_shock" ise hiç şok yok
                 apply_shock = (
                     not self.shock_suspended
+                    and config.DS_MINUS_OUTCOME != "no_shock"
                     and random.random() < config.FA_SHOCK_PROBABILITY
                 )
                 if apply_shock:
@@ -736,13 +741,14 @@ class Experiment:
                     self.box.shock(True)
                     self._stop_event.wait(config.SHOCK_DURATION_S)
                     self.box.shock(False)
+                elif config.DS_MINUS_OUTCOME == "no_shock":
+                    result = TrialResult.PUNISHED
+                    self.stats["punished"] += 1
+                    self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}] (ceza yok)")
                 else:
                     result = TrialResult.PUNISHED  # Timeout — basıldı ama ceza yok
                     self.stats["punished"] += 1
                     self.log.info(f"Trial {self.trial_num} → TIMEOUT [{ds_type.value}] (şok yok)")
-                    # Blackout: tüm ışıklar kapat, TIMEOUT_DURATION_S kadar bekle
-                    self.box.house_light_off()
-                    self.box.cue_light_off(config.LEVER_SIDE)
                     self._stop_event.wait(config.TIMEOUT_DURATION_S)
         else:
             is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
@@ -779,22 +785,56 @@ class Experiment:
         with open(playlist_path, "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
 
+        # İlk satır dummy — atla (generate_avisoft_playlist ve generate_playlists.py
+        # her zaman dummy ilk satırla üretir)
+        if len(lines) > 1:
+            lines = lines[1:]
+
         self.trial_sequence = []
         self.trial_wav_files = lines[:]
+
+        # DS+ ve DS- isimlerini set olarak derle (hızlı arama + açık eşleştirme)
+        plus_names: set[str] = set()
+        if config.DS_PLUS_WAV:
+            plus_names.add(os.path.basename(config.DS_PLUS_WAV).lower())
+        for w in config.DS_PLUS_WAV_LIST:
+            plus_names.add(os.path.basename(w).lower())
+
+        minus_names: set[str] = set()
+        if config.DS_MINUS_WAV:
+            minus_names.add(os.path.basename(config.DS_MINUS_WAV).lower())
+        for w in config.DS_MINUS_WAV_LIST:
+            minus_names.add(os.path.basename(w).lower())
+
         for line in lines:
-            basename = os.path.basename(line).lower()
-            is_plus = False
-            if config.DS_PLUS_WAV and os.path.basename(config.DS_PLUS_WAV).lower() == basename:
-                is_plus = True
-            elif config.DS_PLUS_WAV_LIST:
-                for wav in config.DS_PLUS_WAV_LIST:
-                    if os.path.basename(wav).lower() == basename:
-                        is_plus = True
-                        break
-            self.trial_sequence.append(DSType.PLUS if is_plus else DSType.MINUS)
+            bn = os.path.basename(line).lower()
+            if bn in plus_names:
+                self.trial_sequence.append(DSType.PLUS)
+            elif bn in minus_names:
+                self.trial_sequence.append(DSType.MINUS)
+            else:
+                # Liste eşleşmesi yok — dosya adından otomatik tespit
+                name_no_ext = os.path.splitext(bn)[0]
+                if any(p in name_no_ext for p in ("ds+", "ds_plus", "dsplus", "50khz", "50")):
+                    self.log.info(f"Playlist: '{bn}' → 50kHz (isimden tespit)")
+                    self.trial_sequence.append(DSType.PLUS)
+                elif any(p in name_no_ext for p in ("ds-", "ds_minus", "dsminus", "22khz", "22")):
+                    self.log.info(f"Playlist: '{bn}' → 22kHz (isimden tespit)")
+                    self.trial_sequence.append(DSType.MINUS)
+                elif plus_names:
+                    # DS+ listesi tanımlı ama bu dosya orada değil → DS-
+                    self.trial_sequence.append(DSType.MINUS)
+                else:
+                    self.log.warning(f"Playlist: tanımlanamayan WAV '{bn}' — DS− kabul edildi")
+                    self.trial_sequence.append(DSType.MINUS)
 
         config.NUM_TRIALS = len(self.trial_sequence)
-        self.log.info(f"Mevcut playlist'ten yuklendi: {len(self.trial_sequence)} trial")
+        plus_n  = sum(1 for d in self.trial_sequence if d == DSType.PLUS)
+        minus_n = len(self.trial_sequence) - plus_n
+        self.log.info(
+            f"Mevcut playlist'ten yuklendi: {len(self.trial_sequence)} trial "
+            f"(DS+: {plus_n}, DS−: {minus_n})"
+        )
 
     def _make_trial_sequence(self, max_consecutive: int = 3) -> list[DSType]:
         n_plus  = round(config.NUM_TRIALS * config.DS_PLUS_RATIO)
@@ -838,13 +878,17 @@ class Experiment:
         parent = os.path.dirname(playlist_path)
         if parent:
             os.makedirs(parent, exist_ok=True)
+
+        # Avisoft playlist yüklenince 2. satırı "hazır" gösterir (ilk trigger
+        # gerçekte 2. DS'i çalar). Başa dummy satır ekleyerek bu 1-offset'i dengele.
+        dummy = lines[0] if lines else (config.DS_PLUS_WAV or config.DS_MINUS_WAV)
         with open(playlist_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines))
+            f.write("\n".join([dummy] + lines))
 
         from collections import Counter
         counts = Counter(lines)
         count_str = ", ".join(f"{os.path.basename(k)}:{v}" for k, v in counts.items())
-        self.log.info(f"Playlist: {playlist_path} ({len(lines)} ses, {count_str})")
+        self.log.info(f"Playlist: {playlist_path} ({len(lines)} ses + 1 dummy, {count_str})")
         return playlist_path
 
     # ── CSV Log ───────────────────────────────────────────────────────────────
