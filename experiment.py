@@ -881,7 +881,12 @@ class Experiment:
 
         # Avisoft playlist yüklenince 2. satırı "hazır" gösterir (ilk trigger
         # gerçekte 2. DS'i çalar). Başa dummy satır ekleyerek bu 1-offset'i dengele.
-        dummy = lines[0] if lines else (config.DS_PLUS_WAV or config.DS_MINUS_WAV)
+        # Dummy, ilk trial ile AYNI dosya olmamalı — Avisoft aynı adı üst üste
+        # görünce tekrar çalmayabilir. Zıt DS tipini kullan.
+        if self.trial_sequence and self.trial_sequence[0] == DSType.PLUS:
+            dummy = _rnd.choice(config.DS_MINUS_WAV_LIST) if config.DS_MINUS_WAV_LIST else config.DS_MINUS_WAV
+        else:
+            dummy = _rnd.choice(config.DS_PLUS_WAV_LIST) if config.DS_PLUS_WAV_LIST else config.DS_PLUS_WAV
         with open(playlist_path, "w", encoding="utf-8") as f:
             f.write("\n".join([dummy] + lines))
 
