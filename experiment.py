@@ -248,34 +248,37 @@ class Experiment:
             self.log.error(f"Lever training ödül hatası: {e}")
 
     def _deliver_press_outcome(self):
-        """Her lever basışına ödül/ceza ver."""
+        """Her lever basışına anlık ödül/ceza ver."""
         ds = self.current_ds
         if ds is None:
             return
         try:
-            outcome = config.DS_PLUS_OUTCOME if ds == DSType.PLUS else config.DS_MINUS_OUTCOME
+            if ds == DSType.PLUS:
+                outcome = config.DS_PLUS_OUTCOME
+            else:
+                outcome = config.DS_MINUS_OUTCOME
+
             if outcome == "reward":
+                # Lick sayımını hemen aç, lick window'u bu basıştan itibaren uzat
                 self._counting_licks  = True
                 self._lick_window_end = time.time() + config.WATER_PULSES * config.WATER_PULSE_GAP_S + config.LICK_WINDOW_S
+                # Su ver
                 for _ in range(config.WATER_PULSES):
                     if self._stop_event.is_set():
                         break
                     self.box.water(config.WATER_SIDE)
                     self._stop_event.wait(config.WATER_PULSE_GAP_S)
-                self._stop_event.wait(config.LICK_WINDOW_S)
-                self._counting_licks  = False
-                self._lick_window_end = None
                 self.log.info(
-                    f"Trial {self.trial_num} — Basış ödülü: su, lick: {self.lick_count}")
-            elif outcome == "no_shock":
-                self.log.info(f"Trial {self.trial_num} — Basış: no-shock (DS−, anlık sonuç yok)")
-            else:
+                    f"Trial {self.trial_num} — Basış ödülü: su [{ds.value}]")
+            elif outcome == "punishment" and not self.shock_suspended:
                 self.box.shock_current(config.SHOCK_CURRENT_MA)
                 self.box.shock(True)
                 self._stop_event.wait(config.SHOCK_DURATION_S)
                 self.box.shock(False)
                 self.log.info(
-                    f"Trial {self.trial_num} — Basış cezası: {config.SHOCK_CURRENT_MA}mA şok")
+                    f"Trial {self.trial_num} — Basış cezası: {config.SHOCK_CURRENT_MA}mA şok [{ds.value}]")
+            else:
+                self.log.info(f"Trial {self.trial_num} — Basış: no-shock [{ds.value}]")
         except Exception as e:
             self.log.error(f"Press outcome hatası: {e}")
 
@@ -707,49 +710,30 @@ class Experiment:
             is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
 
             if is_go_trial:
+                # Hardware aksiyonu _deliver_press_outcome tarafından verildi; burada sadece kayıt
                 result = TrialResult.REWARDED
                 self.stats["rewarded"] += 1
                 self._hit_count += 1
-                if config.DS_PLUS_OUTCOME == "no_shock":
-                    self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}] (ceza/ödül yok) RT(DS)={rt_ds}")
-                else:
-                    # Go trial — lever basış doğru → ödül
+                outcome = config.DS_PLUS_OUTCOME
+                if outcome == "reward":
                     self.log.info(f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
-                    self._counting_licks = True
-                    for _ in range(config.WATER_PULSES):
-                        if self._stop_event.is_set():
-                            break
-                        self.box.water(config.WATER_SIDE)
-                        self._stop_event.wait(config.WATER_PULSE_GAP_S)
-                    self._stop_event.wait(config.LICK_WINDOW_S)
-                    self._counting_licks = False
-                    self.log.info(f"Trial {self.trial_num} — Lick: {self.lick_count}")
+                elif outcome == "punishment":
+                    self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
+                else:
+                    self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}] RT(DS)={rt_ds}")
             else:
                 # No-Go trial — lever basış yanlış (False Alarm)
+                # Hardware aksiyonu _deliver_press_outcome tarafından verildi; burada sadece kayıt
                 self._fa_count += 1
-                # shock_suspended=True veya DS_MINUS_OUTCOME=="no_shock" ise hiç şok yok
-                apply_shock = (
-                    not self.shock_suspended
-                    and config.DS_MINUS_OUTCOME != "no_shock"
-                    and random.random() < config.FA_SHOCK_PROBABILITY
-                )
-                if apply_shock:
-                    result = TrialResult.PUNISHED
-                    self.stats["punished"] += 1
+                result = TrialResult.PUNISHED
+                self.stats["punished"] += 1
+                outcome = config.DS_MINUS_OUTCOME
+                if outcome == "punishment" and not self.shock_suspended:
                     self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] {config.SHOCK_CURRENT_MA}mA")
-                    self.box.shock_current(config.SHOCK_CURRENT_MA)
-                    self.box.shock(True)
-                    self._stop_event.wait(config.SHOCK_DURATION_S)
-                    self.box.shock(False)
-                elif config.DS_MINUS_OUTCOME == "no_shock":
-                    result = TrialResult.PUNISHED
-                    self.stats["punished"] += 1
-                    self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}] (ceza yok)")
+                elif outcome == "reward":
+                    self.log.info(f"Trial {self.trial_num} → ÖDÜL (DS−) [{ds_type.value}]")
                 else:
-                    result = TrialResult.PUNISHED  # Timeout — basıldı ama ceza yok
-                    self.stats["punished"] += 1
-                    self.log.info(f"Trial {self.trial_num} → TIMEOUT [{ds_type.value}] (şok yok)")
-                    self._stop_event.wait(config.TIMEOUT_DURATION_S)
+                    self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}]")
         else:
             is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
 

@@ -6,7 +6,6 @@ Boğaziçi Üniversitesi Davranışsal Nörobilim Laboratuvarı
 
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
-import importlib
 import logging
 import os
 import threading
@@ -113,36 +112,27 @@ class App(tk.Tk):
                                           font=("Helvetica", 9, "italic"))
         self.lbl_animal_queue.grid(row=1, column=0, columnspan=2, sticky="w", padx=8)
 
-        ttk.Label(sess_frame, text="Grup:").grid(row=2, column=0, sticky="w", **PAD)
-        self.var_group = tk.StringVar(value=config.GROUP)
-        self.cmb_group = ttk.Combobox(sess_frame, textvariable=self.var_group,
-                                      values=["congruent", "incongruent", "control"],
-                                      width=14, state="readonly")
-        self.cmb_group.grid(row=2, column=1, **PAD)
-        self.cmb_group.bind("<<ComboboxSelected>>", self._on_group_change)
-
-        ttk.Label(sess_frame, text="Faz:").grid(row=3, column=0, sticky="w", **PAD)
+        ttk.Label(sess_frame, text="Faz:").grid(row=2, column=0, sticky="w", **PAD)
         self.var_phase = tk.StringVar(value=config.PHASE)
         self.cmb_phase = ttk.Combobox(sess_frame, textvariable=self.var_phase,
                                       values=["acquisition", "reversal"],
                                       width=14, state="readonly")
-        self.cmb_phase.grid(row=3, column=1, **PAD)
-        self.cmb_phase.bind("<<ComboboxSelected>>", self._on_group_change)
+        self.cmb_phase.grid(row=2, column=1, **PAD)
 
-        ttk.Label(sess_frame, text="Playlist:").grid(row=4, column=0, sticky="w", **PAD)
+        ttk.Label(sess_frame, text="Playlist:").grid(row=3, column=0, sticky="w", **PAD)
         self.var_playlist = tk.StringVar(value=config.AVISOFT_PLAYLIST)
-        ttk.Entry(sess_frame, textvariable=self.var_playlist, width=16).grid(row=4, column=1, **PAD)
+        ttk.Entry(sess_frame, textvariable=self.var_playlist, width=16).grid(row=3, column=1, **PAD)
         ttk.Button(sess_frame, text="Gözat…", width=7,
-                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=4, column=2, **PAD)
+                   command=lambda: self._browse_playlist(self.var_playlist)).grid(row=3, column=2, **PAD)
 
         self.lbl_playlist_status = ttk.Label(sess_frame, text="", foreground="#555555",
                                               font=("Helvetica", 8, "italic"))
-        self.lbl_playlist_status.grid(row=5, column=0, columnspan=3, sticky="w", padx=8)
+        self.lbl_playlist_status.grid(row=4, column=0, columnspan=3, sticky="w", padx=8)
 
         ttk.Label(sess_frame, text="Avisoft DOUT\nport (opsiyonel):",
-                  justify="left").grid(row=6, column=0, sticky="w", **PAD)
+                  justify="left").grid(row=5, column=0, sticky="w", **PAD)
         self.var_dout_port = tk.StringVar(value=config.AVISOFT_DOUT_PORT)
-        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=6, column=1, **PAD)
+        ttk.Entry(sess_frame, textvariable=self.var_dout_port, width=10).grid(row=5, column=1, **PAD)
 
         # ── Playlist Seçici ──────────────
         pl_sel_frame = ttk.LabelFrame(left, text="Playlist Seçici")
@@ -413,6 +403,17 @@ class App(tk.Tk):
 
         ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
 
+        lever_row = ttk.Frame(ctrl_frame)
+        lever_row.pack(fill="x", padx=8, pady=2)
+        ttk.Label(lever_row, text="Aktif Lever:").pack(side="left")
+        self.lbl_lever_side = ttk.Label(lever_row, text="SOL",
+                                        font=("Helvetica", 10, "bold"), foreground="#1565C0")
+        self.lbl_lever_side.pack(side="left", padx=6)
+        ttk.Button(lever_row, text="Sol ↔ Sağ",
+                   command=self._toggle_lever_side).pack(side="right")
+
+        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
+
         ttk.Button(ctrl_frame, text="Rapor Oluştur", command=self._generate_report).pack(fill="x", padx=8, pady=2)
 
         # ── Simülasyon ───────────────────
@@ -493,9 +494,8 @@ class App(tk.Tk):
         self.lbl_state = self._status_row(info_col, "Durum:",   "HAZIR",       0)
         self.lbl_trial = self._status_row(info_col, "Trial:",   "—",           1)
         self.lbl_ds    = self._status_row(info_col, "DS Tipi:", "—",           2)
-        self.lbl_group        = self._status_row(info_col, "Grup:",  config.GROUP,  3)
-        self.lbl_phase        = self._status_row(info_col, "Faz:",   config.PHASE,  4)
-        self.lbl_shock_status = self._status_row(info_col, "Shock:", "Aktif",       5)
+        self.lbl_phase        = self._status_row(info_col, "Faz:",   config.PHASE,  3)
+        self.lbl_shock_status = self._status_row(info_col, "Shock:", "Aktif",       4)
 
         # ── Sonuç Tablosu ────────────────
         res_frame = ttk.LabelFrame(right, text="Trial Sonuçları")
@@ -573,37 +573,29 @@ class App(tk.Tk):
         fh.setFormatter(fmt)
         root_log.addHandler(fh)
 
-    # ── Grup seçimi ───────────────────────────────────────────────────────────
-
-    _GROUP_MAP = {
-        "congruent":   "config_congruent",
-        "incongruent": "config_incongruent",
-        "control":     "config_control",
-    }
-
-    def _on_group_change(self, event=None):
-        group = self.var_group.get()
-        phase = self.var_phase.get()
-        cfg = importlib.import_module(self._GROUP_MAP[group])
-        if phase == "acquisition":
-            self.var_ds_plus_wav.set(cfg.DS_PLUS_WAV)
-            self.var_ds_minus_wav.set(cfg.DS_MINUS_WAV)
-        else:  # reversal: swap WAVs
-            self.var_ds_plus_wav.set(cfg.DS_MINUS_WAV)
-            self.var_ds_minus_wav.set(cfg.DS_PLUS_WAV)
-        config.GROUP = group
-        config.PHASE = phase
-        self._update_mode_labels()
-        logging.getLogger("App").info(f"Grup/Faz: {group}/{phase} — WAV güncellendi")
-
     def _update_mode_labels(self):
-        self.lbl_group._var.set(self.var_group.get())
         if self.exp:
             self.lbl_phase._var.set(self.exp.phase.capitalize())
             self.lbl_shock_status._var.set("Suspended" if self.exp.shock_suspended else "Aktif")
         else:
             self.lbl_phase._var.set(self.var_phase.get().capitalize())
             self.lbl_shock_status._var.set("Aktif")
+
+    # ── Lever tarafı değiştir ─────────────────────────────────────────────────
+
+    def _toggle_lever_side(self):
+        if config.LEVER_SIDE == 0x01:
+            config.LEVER_SIDE  = 0x02
+            config.WATER_SIDE  = 0x02
+            label = "SAĞ"
+            self.var_lever_side.set("Sağ (0x02)")
+        else:
+            config.LEVER_SIDE  = 0x01
+            config.WATER_SIDE  = 0x01
+            label = "SOL"
+            self.var_lever_side.set("Sol (0x01)")
+        self.lbl_lever_side.config(text=label)
+        logging.getLogger("App").info(f"Lever tarafı değiştirildi: {label}")
 
     # ── Reversal kontrol ──────────────────────────────────────────────────────
 
@@ -741,9 +733,7 @@ class App(tk.Tk):
 
     def _apply_params(self) -> bool:
         try:
-            config.GROUP = self.var_group.get()
             config.PHASE = self.var_phase.get()
-            self._on_group_change()  # sync WAV vars for current group+phase
             config.MAGAZINE_TRAINING_ENABLED      = self.var_mag_enabled.get()
             config.MAGAZINE_TRAINING_ONLY         = self.var_mag_only.get()
             config.MAGAZINE_TRAINING_ITI_MIN_S    = float(self.var_mag_iti_min.get())

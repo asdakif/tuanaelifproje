@@ -28,13 +28,13 @@ LEVER_TRAINING_DURATION_S    = 1800.0 # Toplam training süresi (saniye, ~30 dk)
 LEVER_TRAINING_WATER_PULSES  = 3      # Her basışta kaç damla su
 LEVER_TRAINING_WATER_GAP_S   = 0.1   # Damlalar arası bekleme (saniye)
 
-BASELINE_DURATION_S = 0.0  # Deney başlamadan önceki baseline süresi (saniye, 0 = devre dışı)
+BASELINE_DURATION_S = 30.0 # Deney başlamadan önceki baseline süresi (saniye, 0 = devre dışı)
 NUM_TRIALS        = 50     # Toplam trial sayısı
 DS_PLUS_RATIO     = 0.5    # DS+ trial oranı (0.5 = %50)
 ITI_MIN_S         = 20.0   # Minimum inter-trial interval (saniye)
 ITI_MAX_S         = 30.0   # Maksimum inter-trial interval (saniye)
-DS_DURATION_S     = 10.0   # DS cue süresi (saniye)
-RESPONSE_WINDOW_S = 5.0    # DS bittikten sonra ek yanıt süresi (saniye)
+DS_DURATION_S     = 15.0   # DS cue süresi (saniye)
+RESPONSE_WINDOW_S = 17.0   # DS bittikten sonra ek yanıt süresi (saniye)
 SHOCK_DURATION_S  = 0.5    # Şok süresi (saniye)
 SHOCK_CURRENT_MA  = 0.2    # Şok akım şiddeti (mA) — 0.1 ile 0.4 arası
 
@@ -44,20 +44,9 @@ SHOCK_CURRENT_MA  = 0.2    # Şok akım şiddeti (mA) — 0.1 ile 0.4 arası
 DS_PLUS_OUTCOME  = "reward"       # DS+ + lever press → ödül
 DS_MINUS_OUTCOME = "punishment"   # DS− + lever press → ceza
 
-# ─── Graduated Punishment ─────────────────────────────────────────────────────
-# No-Go yanlış basışlarda şok uygulanma olasılığı.
-# Acquisition'da: 0.5 (50% şok / 50% timeout)
-# Reversal Day 1–2: experiment.py'den shock_suspended=True ile override edilir
-FA_SHOCK_PROBABILITY = 0.5          # 0.0 = hiç şok yok, 1.0 = her zaman şok, 0.5 = yarı yarıya
-
 # ─── Timeout (Blackout) ───────────────────────────────────────────────────────
 TIMEOUT_DURATION_S = 5.0            # Yanlış basış → timeout süresi (saniye)
 
-# ─── Grup Tanımı ─────────────────────────────────────────────────────────────
-# "congruent"   → 50kHz=DS+/reward, 22kHz=DS-/punishment  (innate valence ile uyumlu)
-# "incongruent" → 22kHz=DS+/reward, 50kHz=DS-/punishment  (innate valence'a ters)
-# "control"     → Nötr tone kullanır, valence yok
-GROUP = "congruent"                 # GUI'den set edilecek
 PHASE = "acquisition"               # GUI'den set edilecek ("acquisition" veya "reversal")
 
 # ─── Su Ödülü ─────────────────────────────────────────────────────────────────
@@ -87,7 +76,7 @@ AVISOFT_PLAYBACK_CONFIG = r"C:\Users\behne\Desktop\OC-USV\playback config\playba
 AVISOFT_RECORD_EXE        = ""                          # Bos birakilirsa Playback exe ile ayni kullanilir
 AVISOFT_RECORD_CONFIG     = ""                          # Record config dosyasi
 AVISOFT_RECORDER_WINDOW   = "Avisoft-RECORDER USGH #2"  # Recorder pencere basligi
-AVISOFT_LAUNCH_DELAY_S  = 3.0   # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)
+AVISOFT_LAUNCH_DELAY_S  = 0.0   # Avisoft açıldıktan sonra deneyin başlaması için bekleme (saniye)
 
 # ─── Avisoft BNC TTL Trigger ──────────────────────────────────────────────────
 # DS sunumu başında operant kutu BNC çıkışından Avisoft'a TTL pulse gönderilir.
