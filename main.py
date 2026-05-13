@@ -403,17 +403,6 @@ class App(tk.Tk):
 
         ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
 
-        lever_row = ttk.Frame(ctrl_frame)
-        lever_row.pack(fill="x", padx=8, pady=2)
-        ttk.Label(lever_row, text="Aktif Lever:").pack(side="left")
-        self.lbl_lever_side = ttk.Label(lever_row, text="SOL",
-                                        font=("Helvetica", 10, "bold"), foreground="#1565C0")
-        self.lbl_lever_side.pack(side="left", padx=6)
-        ttk.Button(lever_row, text="Sol ↔ Sağ",
-                   command=self._toggle_lever_side).pack(side="right")
-
-        ttk.Separator(ctrl_frame, orient="horizontal").pack(fill="x", padx=8, pady=4)
-
         ttk.Button(ctrl_frame, text="Rapor Oluştur", command=self._generate_report).pack(fill="x", padx=8, pady=2)
 
         # ── Simülasyon ───────────────────
@@ -580,22 +569,6 @@ class App(tk.Tk):
         else:
             self.lbl_phase._var.set(self.var_phase.get().capitalize())
             self.lbl_shock_status._var.set("Aktif")
-
-    # ── Lever tarafı değiştir ─────────────────────────────────────────────────
-
-    def _toggle_lever_side(self):
-        if config.LEVER_SIDE == 0x01:
-            config.LEVER_SIDE  = 0x02
-            config.WATER_SIDE  = 0x02
-            label = "SAĞ"
-            self.var_lever_side.set("Sağ (0x02)")
-        else:
-            config.LEVER_SIDE  = 0x01
-            config.WATER_SIDE  = 0x01
-            label = "SOL"
-            self.var_lever_side.set("Sol (0x01)")
-        self.lbl_lever_side.config(text=label)
-        logging.getLogger("App").info(f"Lever tarafı değiştirildi: {label}")
 
     # ── Reversal kontrol ──────────────────────────────────────────────────────
 

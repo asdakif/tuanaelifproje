@@ -585,6 +585,12 @@ class Experiment:
                 self._emit_state()
 
     def _run_trial(self, ds_type: DSType):
+        # DS süresini bu trial'ın wav dosyasından oku
+        wav_path = (self.trial_wav_files[self.trial_num - 1]
+                    if self.trial_wav_files and self.trial_num - 1 < len(self.trial_wav_files)
+                    else "")
+        ds_dur = self._ds_duration_from_wav(wav_path)
+
         # ── 1. ITI ───────────────────────────────────────────────────────────
         self.state               = State.ITI
         self.current_ds          = None
@@ -655,28 +661,23 @@ class Experiment:
             self.box.lever_extend(config.LEVER_SIDE)
             time.sleep(0.05)
             self.box.lever_extend(config.LEVER_SIDE)
-            self.log.info(f"Trial {self.trial_num} — {ds_type.value} + lever uzatıldı")
-            # DS onset'ten itibaren DS_DURATION_S dolana kadar bekle (lever basılınca çık)
-            ds_end = self._ds_onset_time + config.DS_DURATION_S
+            self.log.info(f"Trial {self.trial_num} — {ds_type.value} + lever uzatıldı ({ds_dur}s)")
+            # Yanıt penceresi DS ile birlikte başlar — DS boyunca tam süre bekle, erken çıkma
+            ds_end = self._ds_onset_time + ds_dur
             while not self._stop_event.is_set() and time.time() < ds_end:
-                remaining = ds_end - time.time()
-                if self._lever_event.wait(min(0.05, remaining)):
-                    break
+                self._stop_event.wait(min(0.05, ds_end - time.time()))
             if self._stop_event.is_set():
                 return
         else:
-            self.log.info(f"Trial {self.trial_num} — {ds_type.value} sunuldu")
-            if self._stop_event.wait(config.DS_DURATION_S):
+            self.log.info(f"Trial {self.trial_num} — {ds_type.value} sunuldu ({ds_dur}s)")
+            if self._stop_event.wait(ds_dur):
                 return
 
-        # ── 3. Yanıt Penceresi ────────────────────────────────────────────────
+        # ── 3. DS bitti — 2s daha lever dışarıda, basışlar hâlâ geçerli ─────
         self.state = State.RESPONSE
-        if not self.lever_pressed:
-            self._lever_event.clear()
         self._emit_state()
 
         if not config.LEVER_EXTEND_ON_DS:
-            # Yanıt gecikmesi
             if config.RESPONSE_DELAY_S > 0:
                 if self._stop_event.wait(config.RESPONSE_DELAY_S):
                     return
@@ -686,12 +687,16 @@ class Experiment:
             time.sleep(0.05)
             self.box.lever_extend(config.LEVER_SIDE)
             self.log.info(f"Trial {self.trial_num} — Lever uzatıldı")
+            # LEVER_EXTEND_ON_DS=False ise eski davranış korunur
+            resp_end = time.time() + config.RESPONSE_WINDOW_S
+            while not self._stop_event.is_set() and time.time() < resp_end:
+                remaining = resp_end - time.time()
+                self._lever_event.wait(min(0.05, remaining))
+        else:
+            # LEVER_EXTEND_ON_DS=True: DS bittikten 2s lever dışarıda kalır
+            if self._stop_event.wait(2.0):
+                return
 
-        # Yanıt penceresini tam süre bekle — lever basılmış olsa bile dışarıda kalır
-        resp_end = time.time() + config.RESPONSE_WINDOW_S
-        while not self._stop_event.is_set() and time.time() < resp_end:
-            remaining = resp_end - time.time()
-            self._lever_event.wait(min(0.05, remaining))
         pressed = self.lever_pressed
 
         # ── 4. Outcome ────────────────────────────────────────────────────────
@@ -710,28 +715,58 @@ class Experiment:
             is_go_trial = (ds_type == DSType.PLUS) if not self.reversal_mode else (ds_type == DSType.MINUS)
 
             if is_go_trial:
-                # Hardware aksiyonu _deliver_press_outcome tarafından verildi; burada sadece kayıt
                 result = TrialResult.REWARDED
                 self.stats["rewarded"] += 1
                 self._hit_count += 1
                 outcome = config.DS_PLUS_OUTCOME
                 if outcome == "reward":
                     self.log.info(f"Trial {self.trial_num} → ÖDÜL [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
+                    # _deliver_press_outcome anlık su verdiyse lick_window_end dolu olur;
+                    # boşsa (race condition) burada güvence olarak su ver
+                    if self._lick_window_end is None:
+                        self._counting_licks  = True
+                        self._lick_window_end = (time.time()
+                                                 + config.WATER_PULSES * config.WATER_PULSE_GAP_S
+                                                 + config.LICK_WINDOW_S)
+                        for _ in range(config.WATER_PULSES):
+                            if self._stop_event.is_set():
+                                break
+                            self.box.water(config.WATER_SIDE)
+                            self._stop_event.wait(config.WATER_PULSE_GAP_S)
                 elif outcome == "punishment":
                     self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
+                    if self._lick_window_end is None:
+                        self.box.shock_current(config.SHOCK_CURRENT_MA)
+                        self.box.shock(True)
+                        self._stop_event.wait(config.SHOCK_DURATION_S)
+                        self.box.shock(False)
                 else:
                     self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}] RT(DS)={rt_ds}")
             else:
                 # No-Go trial — lever basış yanlış (False Alarm)
-                # Hardware aksiyonu _deliver_press_outcome tarafından verildi; burada sadece kayıt
                 self._fa_count += 1
                 result = TrialResult.PUNISHED
                 self.stats["punished"] += 1
                 outcome = config.DS_MINUS_OUTCOME
                 if outcome == "punishment" and not self.shock_suspended:
                     self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] {config.SHOCK_CURRENT_MA}mA")
+                    if self._lick_window_end is None:
+                        self.box.shock_current(config.SHOCK_CURRENT_MA)
+                        self.box.shock(True)
+                        self._stop_event.wait(config.SHOCK_DURATION_S)
+                        self.box.shock(False)
                 elif outcome == "reward":
                     self.log.info(f"Trial {self.trial_num} → ÖDÜL (DS−) [{ds_type.value}]")
+                    if self._lick_window_end is None:
+                        self._counting_licks  = True
+                        self._lick_window_end = (time.time()
+                                                 + config.WATER_PULSES * config.WATER_PULSE_GAP_S
+                                                 + config.LICK_WINDOW_S)
+                        for _ in range(config.WATER_PULSES):
+                            if self._stop_event.is_set():
+                                break
+                            self.box.water(config.WATER_SIDE)
+                            self._stop_event.wait(config.WATER_PULSE_GAP_S)
                 else:
                     self.log.info(f"Trial {self.trial_num} → NO-SHOCK [{ds_type.value}]")
         else:
@@ -814,6 +849,17 @@ class Experiment:
             f"Mevcut playlist'ten yuklendi: {len(self.trial_sequence)} trial "
             f"(DS+: {plus_n}, DS−: {minus_n})"
         )
+
+    def _ds_duration_from_wav(self, wav_path: str) -> float:
+        """Dosya adından DS süresini oku. Örnek: '50kHz_15s.wav' → 15.0s. Bulunamazsa config değeri."""
+        import re
+        name = os.path.splitext(os.path.basename(wav_path))[0]
+        m = re.search(r'(\d+(?:\.\d+)?)s', name)
+        if m:
+            dur = float(m.group(1))
+            self.log.info(f"DS süresi dosya adından okundu: '{os.path.basename(wav_path)}' → {dur}s")
+            return dur
+        return config.DS_DURATION_S
 
     def _make_trial_sequence(self, max_consecutive: int = 3) -> list[DSType]:
         n_plus  = round(config.NUM_TRIALS * config.DS_PLUS_RATIO)
