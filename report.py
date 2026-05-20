@@ -20,6 +20,10 @@ def _parse_rows(csv_path: str) -> list[dict]:
     return rows
 
 
+def _raw_lick_count(row: dict) -> int:
+    return int(row.get("raw_lick_count", row.get("lick_count", 0)) or 0)
+
+
 def _summary(rows: list[dict]) -> dict:
     last = rows[-1]
     timestamp_raw = rows[0].get("timestamp", "")
@@ -42,7 +46,7 @@ def _summary(rows: list[dict]) -> dict:
         "punished":        int(last.get("punished",   0) or 0),
         "omission":        int(last.get("omission",   0) or 0),
         "cr_count":        int(last.get("correct_rejection", 0) or 0),
-        "total_licks":     sum(int(r.get("lick_count",  0) or 0) for r in rows),
+        "total_licks":     sum(_raw_lick_count(r) for r in rows),
         "total_iti":       sum(int(r.get("iti_presses", 0) or 0) for r in rows),
         "sync_misses":     sum(1 for r in rows if r.get("sound_confirmed", "1") == "0"),
         "criterion_trial": criterion_trial,
@@ -83,7 +87,7 @@ def generate_html(csv_path: str) -> str:
         label   = RESULT_LABEL.get(result, result)
         rt_ds   = f"{float(r['rt_from_ds_s']):.3f}"   if r.get("rt_from_ds_s")    else "—"
         rt_lev  = f"{float(r['rt_from_lever_s']):.3f}" if r.get("rt_from_lever_s") else "—"
-        licks   = r.get("lick_count",  "0") or "0"
+        licks   = str(_raw_lick_count(r))
         iti_p   = r.get("iti_presses", "0") or "0"
         hr      = f"{float(r['hit_rate'])*100:.1f}%"  if r.get("hit_rate")  else "—"
         cr      = f"{float(r['cr_rate'])*100:.1f}%"   if r.get("cr_rate")   else "—"
@@ -421,7 +425,7 @@ def generate_excel(csv_path: str) -> str:
         write(ws2, rx, 3, RESULT_LABEL.get(result, result), bg=rbg, fg=rfg, bold=True)
         w(4,  float(r["rt_from_ds_s"])    if r.get("rt_from_ds_s")    else "—")
         w(5,  float(r["rt_from_lever_s"]) if r.get("rt_from_lever_s") else "—")
-        w(6,  int(r.get("lick_count",  0) or 0))
+        w(6,  _raw_lick_count(r))
         iti = int(r.get("iti_presses", 0) or 0)
         write(ws2, rx, 7, iti, bg=rbg, fg=C["warn_fg"] if iti > 0 else C["text"], bold=iti > 0)
         w(8,  f"{float(r['hit_rate'])*100:.1f}%" if r.get("hit_rate") else "—")

@@ -37,10 +37,12 @@ class OperantBox:
     EVT_NOSE_POKE      = 0xA5
 
     # Lever alt tipleri
-    LEVER_PRESS   = 0xA0
-    LEVER_RELEASE = 0xC0
-    LEVER_LEFT    = 0x01
-    LEVER_RIGHT   = 0x02
+    LEVER_PRESS        = 0xA0
+    LEVER_RELEASE      = 0xC0
+    LEVER_LICK_ON      = 0xA3
+    LEVER_LICK_OFF     = 0xA4
+    LEVER_LEFT         = 0x01
+    LEVER_RIGHT        = 0x02
 
     def __init__(self, port: str, channel: int = 0x01, simulated: bool = False):
         self.port       = port
@@ -162,9 +164,15 @@ class OperantBox:
             elif subtype == self.LEVER_RELEASE:
                 self.log.info(f"Lever bırakıldı: {side_name}")
                 self._emit('lever_release', side_name)
-            elif subtype == 0xA3:  # lick (firmware EVT_LEVER frame içinde gönderiyor)
+            elif subtype == self.LEVER_LICK_ON:
                 self.log.info(f"Lick: {side_name}")
                 self._emit('lick', side_name)
+            elif subtype == self.LEVER_LICK_OFF:
+                self.log.debug(f"Lick bırakıldı: {side_name}")
+            else:
+                self.log.debug(
+                    f"Bilinmeyen EVT_LEVER alt tipi: 0x{subtype:02X} | side={side_name}"
+                )
 
         elif evt_type == self.EVT_FOOD_STATUS:
             self.log.warning("Yem bitti!")

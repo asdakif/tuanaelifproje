@@ -511,8 +511,8 @@ class App(tk.Tk):
         misc_frame = ttk.LabelFrame(right, text="Lick & ITI")
         misc_frame.pack(fill="x", pady=4)
 
-        self.lbl_lick_trial  = self._status_row(misc_frame, "Lick (bu trial):",   "0", 0)
-        self.lbl_lick_total  = self._status_row(misc_frame, "Lick (toplam):",      "0", 1)
+        self.lbl_lick_trial  = self._status_row(misc_frame, "Lick (trial/raw):",   "0", 0)
+        self.lbl_lick_total  = self._status_row(misc_frame, "Lick (toplam/raw):",  "0", 1)
         self.lbl_iti_trial   = self._status_row(misc_frame, "ITI press (trial):",  "0", 2)
         self.lbl_iti_total   = self._status_row(misc_frame, "ITI press (toplam):", "0", 3)
         self.lbl_logf        = self._status_row(misc_frame, "Log dosyası:",         "—", 4)
@@ -863,6 +863,9 @@ class App(tk.Tk):
                 self.lbl_ds._var.set("22kHz")
                 self.canvas_ds.itemconfig(self.ds_circle, fill="#ff1744")
 
+            if state == State.ITI and self.exp and trial_num:
+                self.lbl_lick_trial._var.set(str(self.exp.raw_lick_count))
+
             if state == State.LEV_TRAINING:
                 self.btn_lev_stop.configure(state="normal")
 
@@ -1025,12 +1028,17 @@ class App(tk.Tk):
             self.lbl_punish._var.set(str(s["punished"]))
             self.lbl_omit._var.set(str(s["omission"]))
             self.lbl_cr._var.set(str(s["correct_rejection"]))
-            self.lbl_lick_trial._var.set("0")
             if self.exp._log_file:
                 self.lbl_logf._var.set(os.path.basename(self.exp._log_file))
         self.after(0, _update)
 
-    def _on_lick_update(self, trial_licks: int, total_licks: int):
+    def _on_lick_update(
+        self,
+        trial_licks: int,
+        total_licks: int,
+        _reward_trial_licks: int,
+        _reward_total_licks: int,
+    ):
         def _update():
             self.lbl_lick_trial._var.set(str(trial_licks))
             self.lbl_lick_total._var.set(str(total_licks))

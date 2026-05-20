@@ -75,8 +75,10 @@ class Experiment:
         self._in_iti          = False
 
         # Lick
-        self.lick_count          = 0
-        self.total_licks         = 0
+        self.lick_count          = 0   # reward window içinde sayılan lick
+        self.total_licks         = 0   # reward window içinde sayılan toplam lick
+        self.raw_lick_count      = 0   # trial boyunca görülen tüm lick event'leri
+        self.total_raw_licks     = 0   # oturum boyunca görülen tüm lick event'leri
         self._counting_licks     = False
         self._lick_window_end:   Optional[float] = None  # lick window bitiş zamanı
         self._mag_delivery_licks = 0   # magazine training: mevcut delivery başına lick
@@ -171,6 +173,18 @@ class Experiment:
                    self.response_time_from_lever)
             except Exception as e:
                 self.log.error(f"Trial callback: {e}")
+
+    def _emit_lick_update(self):
+        for cb in self._on_lick_update:
+            try:
+                cb(
+                    self.raw_lick_count,
+                    self.total_raw_licks,
+                    self.lick_count,
+                    self.total_licks,
+                )
+            except Exception as e:
+                self.log.error(f"Lick callback: {e}")
 
     # ── Diskriminasyon metrikleri ──────────────────────────────────────────────
 
@@ -283,19 +297,24 @@ class Experiment:
             self.log.error(f"Press outcome hatası: {e}")
 
     def _on_lick(self, side: str):
+        self.raw_lick_count  += 1
+        self.total_raw_licks += 1
+
         if self._counting_licks:
             self.lick_count          += 1
             self.total_licks         += 1
             self._mag_delivery_licks += 1
             self._lev_press_licks    += 1
-            self.log.info(f"Lick — {side} | trial: {self.lick_count}, toplam: {self.total_licks}")
-            for cb in self._on_lick_update:
-                try:
-                    cb(self.lick_count, self.total_licks)
-                except Exception as e:
-                    self.log.error(f"Lick callback: {e}")
+            self.log.info(
+                f"Lick — {side} | raw trial: {self.raw_lick_count}, raw toplam: {self.total_raw_licks} | "
+                f"reward trial: {self.lick_count}, reward toplam: {self.total_licks}"
+            )
         else:
-            self.log.warning(f"Lick algılandı ama pencere kapalı (counting_licks=False) — {side}")
+            self.log.debug(
+                f"Lick — {side} | raw trial: {self.raw_lick_count}, raw toplam: {self.total_raw_licks} | "
+                "reward penceresi kapalı"
+            )
+        self._emit_lick_update()
 
     # ── Deney başlat / durdur ─────────────────────────────────────────────────
 
@@ -357,10 +376,13 @@ class Experiment:
         self.animal_id         = animal_id or config.ANIMAL_ID
         self.trial_num         = 0
         self.total_licks       = 0
+        self.total_raw_licks   = 0
+        self.raw_lick_count    = 0
         self.total_iti_presses = 0
         self._hit_count          = 0
         self._fa_count           = 0
         self._sound_sync_misses  = 0
+        self._lick_window_end    = None
         self.reversal_mode       = False
         self.shock_suspended     = False
         self.reversal_shock_prob = 1.0
@@ -368,6 +390,7 @@ class Experiment:
             "rewarded": 0, "punished": 0,
             "omission": 0, "correct_rejection": 0,
         }
+        self._emit_lick_update()
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         if not use_existing_playlist:
             self.trial_sequence = self._make_trial_sequence(max_consecutive)
@@ -598,9 +621,12 @@ class Experiment:
         self.response_time_from_ds    = None
         self.response_time_from_lever = None
         self.lick_count          = 0
+        self.raw_lick_count      = 0
         self.iti_presses         = 0
+        self._lick_window_end    = None
         self._lever_extend_time  = None
         self._lever_event.clear()
+        self._emit_lick_update()
         self._emit_state()
 
         self.box.lever_retract(config.LEVER_SIDE)
@@ -788,6 +814,7 @@ class Experiment:
             if remaining > 0:
                 self._stop_event.wait(remaining)
         self._counting_licks = False
+        self._lick_window_end = None
 
         self._emit_trial(result, ds_type)
         self._emit_disc()
@@ -976,6 +1003,7 @@ class Experiment:
         self._csv_writer.writerow([
             "animal_id", "trial", "ds_type", "result",
             "rt_from_ds_s", "rt_from_lever_s", "lick_count", "iti_presses",
+            "raw_lick_count", "cumulative_raw_licks",
             "timestamp",
             "hit_rate", "cr_rate", "d_prime",
             "rewarded", "punished", "omission", "correct_rejection",
@@ -1000,6 +1028,8 @@ class Experiment:
             f"{self.response_time_from_lever:.4f}" if self.response_time_from_lever else "",
             self.lick_count,
             self.iti_presses,
+            self.raw_lick_count,
+            self.total_raw_licks,
             datetime.now().isoformat(),
             f"{hr:.3f}", f"{cr:.3f}", f"{dp:.3f}",
             self.stats["rewarded"],
