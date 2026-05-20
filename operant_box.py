@@ -162,6 +162,12 @@ class OperantBox:
             elif subtype == self.LEVER_RELEASE:
                 self.log.info(f"Lever bırakıldı: {side_name}")
                 self._emit('lever_release', side_name)
+            elif subtype == self.EVT_FOOD_EATEN:
+                self.log.debug(f"Lick: {side_name}")
+                self._emit('lick', side_name)
+            elif subtype == self.EVT_FOOD_DISPENSED:
+                self.log.info("Yem verildi")
+                self._emit('food_dispensed')
 
         elif evt_type == self.EVT_FOOD_STATUS:
             self.log.warning("Yem bitti!")
