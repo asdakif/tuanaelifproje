@@ -252,7 +252,12 @@ class App(tk.Tk):
             ttk.Label(param_frame, text=label).grid(row=i, column=0, sticky="w", **PAD)
             var = tk.StringVar(value=default)
             setattr(self, var_name, var)
-            ttk.Entry(param_frame, textvariable=var, width=8).grid(row=i, column=1, **PAD)
+            if var_name == "var_shock_ma":
+                ttk.Spinbox(param_frame, textvariable=var, width=8,
+                            from_=0.01, to=5.0, increment=0.01,
+                            format="%.2f").grid(row=i, column=1, **PAD)
+            else:
+                ttk.Entry(param_frame, textvariable=var, width=8).grid(row=i, column=1, **PAD)
 
         # ── Lever Ayarları ────────────────
         lev_frame = ttk.LabelFrame(left, text="Lever Ayarları")

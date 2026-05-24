@@ -244,9 +244,9 @@ class OperantBox:
         self._send(self._packet(self.CMD_SHOCK, 0x01 if on else 0x00, 0x00, 0x00, 0x00))
 
     def shock_current(self, ma: float):
-        """Şok akım şiddetini ayarla. ma: 0.1 – 0.4 mA."""
-        value = max(1, min(4, round(ma * 10)))
-        self._send(self._packet(0x03, self.channel, value, 0x00, 0x00))
+        """Şok akım şiddetini ayarla. ma: mA cinsinden (örn. 0.13)."""
+        value = max(1, min(255, round(ma * 100)))
+        self._send(self._packet(0x03, value, 0x00, 0x00, 0x00))
 
     def cue_light(self, side: int, r: int, g: int, b: int):
         """Cue ışığını ayarla. side: 0x01=sol, 0x02=sağ."""

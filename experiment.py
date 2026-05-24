@@ -81,6 +81,8 @@ class Experiment:
         self.total_raw_licks     = 0   # oturum boyunca görülen tüm lick event'leri
         self._counting_licks     = False
         self._lick_window_end:   Optional[float] = None  # lick window bitiş zamanı
+        self._reward_time:       Optional[float] = None  # su verildiği an
+        self.latency_to_first_lick: Optional[float] = None  # su → ilk lick süresi (s)
         self._mag_delivery_licks = 0   # magazine training: mevcut delivery başına lick
         self._lev_press_licks    = 0   # lever training: son basıştan bu yana lick
 
@@ -275,7 +277,8 @@ class Experiment:
             if outcome == "reward":
                 # Lick sayımını hemen aç, lick window'u bu basıştan itibaren uzat
                 self._counting_licks  = True
-                self._lick_window_end = time.time() + config.WATER_PULSES * config.WATER_PULSE_GAP_S + config.LICK_WINDOW_S
+                self._reward_time     = time.time()
+                self._lick_window_end = self._reward_time + config.WATER_PULSES * config.WATER_PULSE_GAP_S + config.LICK_WINDOW_S
                 # Su ver
                 for _ in range(config.WATER_PULSES):
                     if self._stop_event.is_set():
@@ -305,10 +308,18 @@ class Experiment:
             self.total_licks         += 1
             self._mag_delivery_licks += 1
             self._lev_press_licks    += 1
-            self.log.info(
-                f"Lick — {side} | raw trial: {self.raw_lick_count}, raw toplam: {self.total_raw_licks} | "
-                f"reward trial: {self.lick_count}, reward toplam: {self.total_licks}"
-            )
+            if self.lick_count == 1 and self._reward_time is not None:
+                self.latency_to_first_lick = time.time() - self._reward_time
+                self.log.info(
+                    f"Lick — {side} | ilk lick latency: {self.latency_to_first_lick:.3f}s | "
+                    f"raw trial: {self.raw_lick_count}, raw toplam: {self.total_raw_licks} | "
+                    f"reward trial: {self.lick_count}, reward toplam: {self.total_licks}"
+                )
+            else:
+                self.log.info(
+                    f"Lick — {side} | raw trial: {self.raw_lick_count}, raw toplam: {self.total_raw_licks} | "
+                    f"reward trial: {self.lick_count}, reward toplam: {self.total_licks}"
+                )
         else:
             self.log.debug(
                 f"Lick — {side} | raw trial: {self.raw_lick_count}, raw toplam: {self.total_raw_licks} | "
@@ -624,6 +635,8 @@ class Experiment:
         self.raw_lick_count      = 0
         self.iti_presses         = 0
         self._lick_window_end    = None
+        self._reward_time        = None
+        self.latency_to_first_lick = None
         self._lever_extend_time  = None
         self._lever_event.clear()
         self._emit_lick_update()
@@ -760,7 +773,7 @@ class Experiment:
                             self.box.water(config.WATER_SIDE)
                             self._stop_event.wait(config.WATER_PULSE_GAP_S)
                 elif outcome == "punishment":
-                    self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] RT(DS)={rt_ds} RT(lever)={rt_lever}")
+                    self.log.info(f"Trial {self.trial_num} → ŞOK [{ds_type.value}] {config.SHOCK_CURRENT_MA}mA RT(DS)={rt_ds} RT(lever)={rt_lever}")
                     if self._lick_window_end is None:
                         self.box.shock_current(config.SHOCK_CURRENT_MA)
                         self.box.shock(True)
@@ -1008,7 +1021,7 @@ class Experiment:
             "hit_rate", "cr_rate", "d_prime",
             "rewarded", "punished", "omission", "correct_rejection",
             "sound_confirmed", "criterion_reached", "wav_file",
-            "reversal_mode", "shock_suspended",
+            "reversal_mode", "shock_suspended", "shock_current_ma", "latency_to_first_lick_s",
         ])
         self.log.info(f"Log: {self._log_file}")
 
@@ -1041,5 +1054,7 @@ class Experiment:
             wav,
             int(self.reversal_mode),
             int(self.shock_suspended),
+            config.SHOCK_CURRENT_MA,
+            f"{self.latency_to_first_lick:.4f}" if self.latency_to_first_lick is not None else "",
         ])
         self._csv_file.flush()
