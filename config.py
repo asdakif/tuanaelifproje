@@ -36,7 +36,7 @@ ITI_MAX_S         = 30.0   # Maksimum inter-trial interval (saniye)
 DS_DURATION_S     = 15.0   # DS cue süresi (saniye)
 RESPONSE_WINDOW_S = 17.0   # DS bittikten sonra ek yanıt süresi (saniye)
 SHOCK_DURATION_S  = 0.5    # Şok süresi (saniye)
-SHOCK_CURRENT_MA  = 0.12   # Şok akım şiddeti (mA) — value=1 → ~0.13mA gerçek çıkış
+SHOCK_CURRENT_MA  = 0.1    # Şok akım şiddeti (mA) — cihaza value=1 → 0.1 mA
 
 # ─── Outcome Ayarları ─────────────────────────────────────────────────────────
 # Her DS tipi için lever basıldığında ne olacağını belirle.
